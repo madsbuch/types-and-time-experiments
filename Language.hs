@@ -84,13 +84,12 @@ userList = LList (LInt 133 ::: LInt 3434 ::: Nill)
 This first example generates a program which can check if a user exists in a list
 -}
 -- Note that we can force literals in the type
-{-checkUser :: CoreLang Int Z -> CoreLang (List (CoreLang Int m2) s) m3 -> CoreLang Bool a --(Add (Mult s (S (Add ))) n0)
-checkUser user (LList Nill)  = (LBool False)
-checkUser user uList         = Fold 
+checkUser :: CoreLang Int Z -> CoreLang (List (CoreLang Int m2) s) m3 -> CoreLang Bool a --(Add (Mult s (S (Add ))) n0)
+checkUser user uList         = (Fold 
                                 (\(a) (b) -> (Or a b))
                                 (LBool False)
-                                (Map uList (\u -> (IEq u user)) )
--}
+                                (Map uList (\u -> (IEq u user)) ))
+
 -- Generate expression for execution
 --cuExp = checkUser (LInt 133) userList
 
