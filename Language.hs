@@ -37,7 +37,7 @@ data CoreLang t (s :: Nat) where
     Lit   :: TypePack a -> CoreLang (TypePack a) Z
 
     -- Booleans
-    --And  :: CoreLang Bool m -> CoreLang Bool n -> CoreLang Bool (S (Add m n))
+    And  :: CoreLang (TypePack Bool) m -> CoreLang (TypePack Bool) n -> CoreLang (TypePack Bool) (S (Add m n))
     Or   :: CoreLang (TypePack Bool) m -> CoreLang (TypePack Bool) n -> CoreLang (TypePack Bool) (S (Add m n))
     --Not  :: CoreLang Bool m -> CoreLang Bool (S m)
 
@@ -86,12 +86,30 @@ typeUnpack (L l)    = l
 interpret :: CoreLang t m -> t
 interpret (Lit l)  = l
 
+interpret (Or a b) = let
+                        a'@(B a'') = interpret a
+                        b'@(B b'') = interpret b
+                    in 
+                        B (a'' || b'')
+
+interpret (And a b) = let
+                        a'@(B a'') = interpret a
+                        b'@(B b'') = interpret b
+                    in 
+                        B (a'' && b'')
+
 interpret (Map list f) = doMap (interpret list) f
   where
     doMap :: TypePack (List (TypePack a) s) -> (CoreLang (TypePack a) Z -> CoreLang (TypePack b) fTime) -> TypePack (List (TypePack b) s)
     doMap (L Nill) f          = (L Nill)
---    doMap (L (x ::: xs)) f    = case (doMap xs) of 
---                                        (L e) -> (L ((interpret (f (Lit x))) ::: e))
+    doMap (L (x ::: xs)) f    = case (doMap (L xs) f) of 
+                                        (L e) -> (L ((interpret (f (Lit x))) ::: e))
+
+
+listBools = Lit $ L (B False ::: B False ::: B True ::: B False ::: Nill)
+
+
+mapTest list = (Map list (\b -> (And (Lit (B True)) b)))
 
 {- Some Applications -}
 
@@ -121,8 +139,6 @@ doOr a b = (Or a b)
 false :: CoreLang Bool Z
 false = (Lit $ B False)
 
-
-listBools = Lit $ L (B False ::: B False ::: B True ::: B False ::: Nill)
 
 --foldOr :: CoreLang (List Bool s) s -> CoreLang Bool s
 --foldOr xs = (Fold doOr false xs)
