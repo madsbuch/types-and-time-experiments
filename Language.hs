@@ -49,9 +49,9 @@ data CoreLang t (s :: Nat) where
     --IEq   :: CoreLang Int m -> CoreLang Int n -> CoreLang Bool (S (Add m n))
 
     -- List operations
-    Map  :: CoreLang (List (TypePack a) s) n
-        -> (CoreLang a Z -> CoreLang b fTime) 
-        -> CoreLang (List (TypePack b) s) (Add n (Mult fTime s))
+    Map  :: CoreLang (TypePack (List (TypePack a) s)) n
+        -> (CoreLang (TypePack a) Z -> CoreLang (TypePack b) fTime) 
+        -> CoreLang (TypePack (List (TypePack b) s)) (Add n (Mult fTime s))
 --    Fold :: (CoreLang a Z -> CoreLang a Z -> CoreLang a m) -- function, only constant operations time on literals
 --        -> CoreLang a n0 -- Neutral element, only constants
 --        -> CoreLang (List a s) t --list to fold over, s-sized list of constant values
@@ -86,11 +86,12 @@ typeUnpack (L l)    = l
 interpret :: CoreLang t m -> t
 interpret (Lit l)  = l
 
-interpret (Map list f) = Lit $ doMap (interpret list)
+interpret (Map list f) = doMap (interpret list) f
   where
-    doMap :: List (TypePack a) s -> (CoreLang (TypePack a) Z -> CoreLang (TypePack b) fTime) -> List (TypePack b) s 
-    doMap Nill f          = Nill
-    --doMap (x ::: xs)    = (interpret (f (Lit x))) ::: (doMap xs)
+    doMap :: TypePack (List (TypePack a) s) -> (CoreLang (TypePack a) Z -> CoreLang (TypePack b) fTime) -> TypePack (List (TypePack b) s)
+    doMap (L Nill) f          = (L Nill)
+--    doMap (L (x ::: xs)) f    = case (doMap xs) of 
+--                                        (L e) -> (L ((interpret (f (Lit x))) ::: e))
 
 {- Some Applications -}
 
@@ -113,7 +114,7 @@ This first example generates a program which can check if a user exists in a lis
 --    -> CoreLang Bool (Add (Mult s (S Z)) Z)
 
 --elementEquals x xs = (Map xs (\y -> (IEq y x)))
-
+{-
 doOr :: CoreLang Bool m -> CoreLang Bool n -> CoreLang Bool (S (Add m n))
 doOr a b = (Or a b)
 
@@ -132,7 +133,7 @@ listBools = Lit $ L (B False ::: B False ::: B True ::: B False ::: Nill)
 --        -> CoreLang a (Add (Mult s (S (Add m1 m2))) n0)
 
 -- checkUser user uList         = 
-
+-}
 -- Generate expression for execution
 --cuExp = checkUser (LInt 133) userList
 
