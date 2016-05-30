@@ -59,7 +59,7 @@ data CoreLang t (s :: Nat) where
 
     -- Misc - actually, the relevant stuff
     -- Conditional
-    --If   :: CoreLang Bool m1 -> CoreLang a m2 -> CoreLang a m2 -> CoreLang a (S (Add m1 m2))
+    If   :: CoreLang (TypePack Bool) m1 -> CoreLang (TypePack a) m2 -> CoreLang (TypePack a) m2 -> CoreLang (TypePack a) (S (Add m1 m2))
     -- parallell computations
     -- Par  
 
@@ -106,10 +106,30 @@ interpret (Map list f) = doMap (interpret list) f
                                         (L e) -> (L ((interpret (f (Lit x))) ::: e))
 
 
+interpret (If cond tBranch fBranch) = let 
+                                        cond'@(B cond'') = interpret cond
+                                        tBranch' = interpret tBranch
+                                        fBranch' = interpret fBranch
+                                    in
+                                        if cond'' then tBranch' else fBranch'
+
 listBools = Lit $ L (B False ::: B False ::: B True ::: B False ::: Nill)
 
 
-mapTest list = (Map list (\b -> (And (Lit (B True)) b)))
+mapTest list = (Map list (\b -> (And 
+    (And (Lit (B True)) b)) (Lit (B True)) ))
+
+-- Does not typecheck!!!
+--noTypeCheckTest = If 
+--                (Lit (B True)) 
+--                (Lit (B False)) 
+--                (Or (Lit (B True)) (Lit (B False)))
+
+-- Does type check
+doesTypeCheckTest = If 
+                (Lit (B True)) 
+                (And (Lit (B True)) (Lit (B False)))
+                (Or (Lit (B True)) (Lit (B False)))
 
 {- Some Applications -}
 
