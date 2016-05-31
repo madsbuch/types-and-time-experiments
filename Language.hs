@@ -30,6 +30,7 @@ data TypePack a where
     B :: Bool     -> TypePack Bool
     L :: List a s -> TypePack (List a s)
     I :: Int      -> TypePack Int
+    P :: a -> b -> TypePack (a, b)
 
 -- Define the lagnuage
 data CoreLang t (s :: Nat) where
@@ -40,6 +41,11 @@ data CoreLang t (s :: Nat) where
     And  :: CoreLang (TypePack Bool) m -> CoreLang (TypePack Bool) n -> CoreLang (TypePack Bool) (S (Add m n))
     Or   :: CoreLang (TypePack Bool) m -> CoreLang (TypePack Bool) n -> CoreLang (TypePack Bool) (S (Add m n))
     --Not  :: CoreLang Bool m -> CoreLang Bool (S m)
+
+    -- Pairs
+    Fst  :: CoreLang (TypePack (TypePack a, TypePack b)) n -> CoreLang (TypePack a) (S n)
+    Scn  :: CoreLang (TypePack (TypePack a, TypePack b)) n -> CoreLang (TypePack b) (S n)
+    Pair :: CoreLang (TypePack a) n -> CoreLang (TypePack b) m -> CoreLang (TypePack (TypePack a, TypePack b)) (S (Add n m))
 
     -- Integer
     --Plus  :: CoreLang Int m -> CoreLang Int n -> CoreLang Int  (S (Add m n))
@@ -99,6 +105,14 @@ interpret (And a b) = let
                     in 
                         B (a'' && b'')
 
+interpret (Fst p) = case (interpret p) of
+                      (P a b) -> a
+
+interpret (Scn p) = case (interpret p) of
+                    (P a b) -> b
+
+interpret (Pair a b) = (P (interpret a) (interpret b))
+
 interpret (Map list f) = doMap (interpret list) f 0
   where
     doMap :: TypePack (List (TypePack a) s) -> (CoreLang (TypePack Int) Z -> CoreLang (TypePack a) Z -> CoreLang (TypePack b) fTime) -> Int -> TypePack (List (TypePack b) s)
@@ -123,7 +137,25 @@ interpret (If cond tBranch fBranch) = let
 listBools = Lit $ L (B False ::: B False ::: B True ::: B False ::: Nill)
 
 
-mapTest list = (Map list (\b -> (And 
+{-
+user1Name = L (I 119 ::: I 101 ::: I 98 ::: I 98 ::: I 105 ::: I 101 ::: I 115 ::: Nill) -- "webbies"
+user1Pass = L (I 104 ::: I 117 ::: I 110 ::: I 116 ::: I 101 ::: I 114 ::: I 50  ::: Nill) -- "hunter2"
+user1 = Lit $ L (user1Name ::: user1Pass ::: Nill)
+
+user2Name = L (I 119 ::: I 97 ::: I 114 ::: I 108 ::: I 105 ::: I 122 ::: I 122 ::: I 97 ::: I 114 ::: I 100 ::: Nill) -- "warlizard"
+user2Pass = L (I 112 ::: I 97 ::: I 115 ::: I 115 ::: I 119 ::: I 111 ::: I 114 ::: I 100 ::: Nill ) -- "password"
+user2 = Lit $ L (user2Name ::: user2Pass ::: Nill)
+
+user3Name = L (I 82 ::: I 97 ::: I 110 ::: I 100 ::: I 97 ::: I 108 ::: I 108 ::: Nill) -- "Randall"
+user3Pass = L (I 99 ::: I 111 ::: I 109 ::: I 109 ::: I 111 ::: I 110 ::: I 32 ::: I 104 ::: I 111 ::: I 114 ::: I 115 ::: I 101 ::: I 32 ::: I 98 ::: I 97 ::: I 116 ::: I 116 ::: I 101 ::: I 114 ::: I 121 ::: I 32 ::: I 115 ::: I 116 ::: I 97 ::: I 112 ::: I 108 ::: I 101 ::: Nill) -- "common horse battery staple"
+
+-}
+
+
+listUsers = Lit $ L (I 34 ::: Nill)
+
+
+mapTest list = (Map list (\_ b -> (And
     (And (Lit (B True)) b)) (Lit (B True)) ))
 
 -- Does not typecheck!!!
