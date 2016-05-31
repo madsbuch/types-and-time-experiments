@@ -52,10 +52,11 @@ data CoreLang t (s :: Nat) where
     Map  :: CoreLang (TypePack (List (TypePack a) s)) n
         -> (CoreLang (TypePack a) Z -> CoreLang (TypePack b) fTime) 
         -> CoreLang (TypePack (List (TypePack b) s)) (Add n (Mult fTime s))
---    Fold :: (CoreLang a Z -> CoreLang a Z -> CoreLang a m) -- function, only constant operations time on literals
---        -> CoreLang a n0 -- Neutral element, only constants
---        -> CoreLang (List a s) t --list to fold over, s-sized list of constant values
---        -> CoreLang a (Add t (Add (Mult s m) n0))
+
+    Fold  :: CoreLang (TypePack (List (TypePack a) s)) n
+        -> CoreLang (TypePack b) n0 -- accumulator
+        -> (CoreLang (TypePack a) Z -> CoreLang (TypePack b) Z -> CoreLang (TypePack b) fTime)
+        -> CoreLang (TypePack b) (Add n (Add n0 (Mult fTime s)))
 
     -- Misc - actually, the relevant stuff
     -- Conditional
@@ -104,6 +105,12 @@ interpret (Map list f) = doMap (interpret list) f
     doMap (L Nill) f          = (L Nill)
     doMap (L (x ::: xs)) f    = case (doMap (L xs) f) of 
                                         (L e) -> (L ((interpret (f (Lit x))) ::: e))
+
+interpret (Fold list n f) = doFold (interpret list) f (interpret n)
+  where
+    doFold :: TypePack (List (TypePack a) s) -> (CoreLang (TypePack a) Z -> CoreLang (TypePack b) Z -> CoreLang (TypePack b) fTime) -> TypePack b -> (TypePack b)
+    doFold (L Nill) f n          = n
+    doFold (L (x ::: xs)) f n    = doFold (L xs) (f) (interpret (f (Lit x) (Lit n)))
 
 
 interpret (If cond tBranch fBranch) = let 
