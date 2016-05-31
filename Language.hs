@@ -50,12 +50,12 @@ data CoreLang t (s :: Nat) where
 
     -- List operations
     Map  :: CoreLang (TypePack (List (TypePack a) s)) n
-        -> (CoreLang (TypePack a) Z -> CoreLang (TypePack b) fTime) 
+        -> (CoreLang (TypePack Int) Z -> CoreLang (TypePack a) Z -> CoreLang (TypePack b) fTime)
         -> CoreLang (TypePack (List (TypePack b) s)) (Add n (Mult fTime s))
 
     Fold  :: CoreLang (TypePack (List (TypePack a) s)) n
         -> CoreLang (TypePack b) n0 -- accumulator
-        -> (CoreLang (TypePack a) Z -> CoreLang (TypePack b) Z -> CoreLang (TypePack b) fTime)
+        -> (CoreLang (TypePack Int) Z -> CoreLang (TypePack a) Z -> CoreLang (TypePack b) Z -> CoreLang (TypePack b) fTime)
         -> CoreLang (TypePack b) (Add n (Add n0 (Mult fTime s)))
 
     -- Misc - actually, the relevant stuff
@@ -99,18 +99,18 @@ interpret (And a b) = let
                     in 
                         B (a'' && b'')
 
-interpret (Map list f) = doMap (interpret list) f
+interpret (Map list f) = doMap (interpret list) f 0
   where
-    doMap :: TypePack (List (TypePack a) s) -> (CoreLang (TypePack a) Z -> CoreLang (TypePack b) fTime) -> TypePack (List (TypePack b) s)
-    doMap (L Nill) f          = (L Nill)
-    doMap (L (x ::: xs)) f    = case (doMap (L xs) f) of 
-                                        (L e) -> (L ((interpret (f (Lit x))) ::: e))
+    doMap :: TypePack (List (TypePack a) s) -> (CoreLang (TypePack Int) Z -> CoreLang (TypePack a) Z -> CoreLang (TypePack b) fTime) -> Int -> TypePack (List (TypePack b) s)
+    doMap (L Nill) f count          = (L Nill)
+    doMap (L (x ::: xs)) f count    = case (doMap (L xs) f (count + 1)) of
+                                           (L e) -> (L ((interpret (f (Lit (I count)) (Lit x))) ::: e))
 
-interpret (Fold list n f) = doFold (interpret list) f (interpret n)
+interpret (Fold list n f) = doFold (interpret list) f (interpret n) 0
   where
-    doFold :: TypePack (List (TypePack a) s) -> (CoreLang (TypePack a) Z -> CoreLang (TypePack b) Z -> CoreLang (TypePack b) fTime) -> TypePack b -> (TypePack b)
-    doFold (L Nill) f n          = n
-    doFold (L (x ::: xs)) f n    = doFold (L xs) (f) (interpret (f (Lit x) (Lit n)))
+    doFold :: TypePack (List (TypePack a) s) -> (CoreLang (TypePack Int) Z -> CoreLang (TypePack a) Z -> CoreLang (TypePack b) Z -> CoreLang (TypePack b) fTime) -> TypePack b -> Int -> (TypePack b)
+    doFold (L Nill) f n count          = n
+    doFold (L (x ::: xs)) f n count    = doFold (L xs) (f) (interpret (f (Lit (I count)) (Lit x) (Lit n))) (count + 1)
 
 
 interpret (If cond tBranch fBranch) = let 
