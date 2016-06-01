@@ -53,7 +53,7 @@ data CoreLang t (s :: Nat) where
     -- Booleans
     And  :: CoreLang (TypePack Bool) m -> CoreLang (TypePack Bool) n -> CoreLang (TypePack Bool) (S (Add m n))
     Or   :: CoreLang (TypePack Bool) m -> CoreLang (TypePack Bool) n -> CoreLang (TypePack Bool) (S (Add m n))
-    --Not  :: CoreLang Bool m -> CoreLang Bool (S m)
+    Not  :: CoreLang (TypePack Bool) m -> CoreLang (TypePack Bool) (S m)
 
     -- Pairs
     Fst  :: CoreLang (TypePack (TypePack a, TypePack b)) n -> CoreLang (TypePack a) (S n)
@@ -68,11 +68,11 @@ data CoreLang t (s :: Nat) where
           -> CoreLang (TypePack c) (S (Add n m))
 
     -- Integer
-    --Plus  :: CoreLang Int m -> CoreLang Int n -> CoreLang Int  (S (Add m n))
-    --Minus :: CoreLang Int m -> CoreLang Int n -> CoreLang Int  (S (Add m n))
-    --Time  :: CoreLang Int m -> CoreLang Int n -> CoreLang Int  (S (Add m n))
-    --Div   :: CoreLang Int m -> CoreLang Int n -> CoreLang Int  (S (Add m n))
-    --IEq   :: CoreLang Int m -> CoreLang Int n -> CoreLang Bool (S (Add m n))
+    Plus  :: CoreLang (TypePack Int) m -> CoreLang (TypePack Int) n -> CoreLang (TypePack Int)  (S (Add m n))
+    Minus :: CoreLang (TypePack Int) m -> CoreLang (TypePack Int) n -> CoreLang (TypePack Int)  (S (Add m n))
+    Time  :: CoreLang (TypePack Int) m -> CoreLang (TypePack Int) n -> CoreLang (TypePack Int)  (S (Add m n))
+    Div   :: CoreLang (TypePack Int) m -> CoreLang (TypePack Int) n -> CoreLang (TypePack Int)  (S (Add m n))
+    IEq   :: CoreLang (TypePack Int) m -> CoreLang (TypePack Int) n -> CoreLang (TypePack Bool) (S (Add m n))
 
     -- List operations
     Map  :: CoreLang (TypePack (List (TypePack a) s)) n
@@ -84,6 +84,9 @@ data CoreLang t (s :: Nat) where
           -> (CoreLang (TypePack Int) Z -> CoreLang (TypePack a) Z -> CoreLang (TypePack b) Z -> CoreLang (TypePack b) fTime)
           -> CoreLang (TypePack b) (Add n (Add n0 (Mult fTime s)))
 
+    Length :: CoreLang (TypePack (List (TypePack a) s)) n
+           -> CoreLang (TypePack Int) (S n)
+
     Zip :: CoreLang (TypePack (List (TypePack a) s)) n
         -> CoreLang (TypePack (List (TypePack b) s)) m
         -> CoreLang (TypePack (List (TypePack ((TypePack a), (TypePack b))) s)) (Add n (Add m s))
@@ -92,8 +95,6 @@ data CoreLang t (s :: Nat) where
     -- Misc - actually, the relevant stuff
     -- Conditional
     If   :: CoreLang (TypePack Bool) m1 -> CoreLang (TypePack a) m2 -> CoreLang (TypePack a) m2 -> CoreLang (TypePack a) (S (Add m1 m2))
-    -- parallell computations
-    -- Par  
 
 instance Show a => Show (List a s) where
     show (x ::: xs) = (show x) ++ " ::: " ++ (show xs)
@@ -111,9 +112,9 @@ instance Show t => Show (CoreLang t s) where
 
 --An interpreter
 interpret :: CoreLang t m -> t
+
+-- Basic operations
 interpret (Lit l)  = l
-
-
 interpret (Or a b) = let
                         a'@(B a'') = interpret a
                         b'@(B b'') = interpret b
@@ -125,6 +126,41 @@ interpret (And a b) = let
                         b'@(B b'') = interpret b
                     in 
                         B (a'' && b'')
+
+interpret (Not a) = let
+                        a'@(B a'') = interpret a
+                    in
+                        B (a'')
+
+interpret (Plus a b) = let
+                          a'@(I a'') = interpret a
+                          b'@(I b'') = interpret b
+                      in
+                          I (a'' + b'')
+
+interpret (Minus a b) = let
+                          a'@(I a'') = interpret a
+                          b'@(I b'') = interpret b
+                      in
+                          I (a'' - b'')
+
+interpret (Time a b) = let
+                          a'@(I a'') = interpret a
+                          b'@(I b'') = interpret b
+                      in
+                          I (a'' * b'')
+
+interpret (Div a b) = let
+                          a'@(I a'') = interpret a
+                          b'@(I b'') = interpret b
+                      in
+                          I (div a''  b'')
+
+interpret (IEq a b) = let
+                          a'@(I a'') = interpret a
+                          b'@(I b'') = interpret b
+                      in
+                          B (a'' == b'')
 
 
 -- Sum types
@@ -145,6 +181,13 @@ interpret (Scn p) = case (interpret p) of
 interpret (Pair a b) = (P (interpret a) (interpret b))
 
 -- List operations
+
+interpret (Length list) = I (findLength (interpret list))
+  where
+    findLength :: TypePack (List (TypePack a) s) -> Int
+    findLength (L Nill) = 0
+    findLength (L (x ::: xs)) = 1 + (findLength (L xs))
+
 interpret (Map list f) = doMap (interpret list) f 0
   where
     doMap :: TypePack (List (TypePack a) s) -> (CoreLang (TypePack Int) Z -> CoreLang (TypePack a) Z -> CoreLang (TypePack b) fTime) -> Int -> TypePack (List (TypePack b) s)
