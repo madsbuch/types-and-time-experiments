@@ -20,17 +20,30 @@ type family Mult (n :: Nat) (m :: Nat) :: Nat
 type instance Mult Z     m = Z
 type instance Mult (S m) n = (Add n (Mult m n))
 
+type family Max (n :: Nat) (m :: Nat) :: Nat
+type instance Max Z Z     = Z
+type instance Max Z (S n) = S n
+type instance Max (S n) Z = S n
+type instance Max (S n) (S m) = S (Max n m)
+
 -- List type, Size is the only thing we leak
 infixr 4 :::
 data List a (size :: Nat) where
     Nill :: List a Z
     (:::) :: a -> List a m -> List a (S m)
 
+data SumType a b = InL a | InR b
+
 data TypePack a where
     B :: Bool     -> TypePack Bool
     L :: List a s -> TypePack (List a s)
     I :: Int      -> TypePack Int
-    P :: a -> b -> TypePack (a, b)
+    U :: () -> TypePack ()
+    P :: a -> b  -> TypePack (a, b)
+    E :: SumType a b  -> TypePack (SumType a b)
+
+data BoolT = FalseT | TrueT
+
 
 -- Define the lagnuage
 data CoreLang t (s :: Nat) where
@@ -47,6 +60,13 @@ data CoreLang t (s :: Nat) where
     Scn  :: CoreLang (TypePack (TypePack a, TypePack b)) n -> CoreLang (TypePack b) (S n)
     Pair :: CoreLang (TypePack a) n -> CoreLang (TypePack b) m -> CoreLang (TypePack (TypePack a, TypePack b)) (S (Add n m))
 
+    SumL  :: CoreLang (TypePack a) n -> CoreLang (TypePack (SumType (TypePack a) (TypePack b))) (S n)
+    SumR  :: CoreLang (TypePack b) n -> CoreLang (TypePack (SumType (TypePack a) (TypePack b))) (S n)
+    Case  :: CoreLang (TypePack (SumType (TypePack a) (TypePack b))) n
+          -> (CoreLang (TypePack a) Z -> CoreLang (TypePack c) m)
+          -> (CoreLang (TypePack b) Z -> CoreLang (TypePack c) m)
+          -> CoreLang (TypePack c) (S (Add n m))
+
     -- Integer
     --Plus  :: CoreLang Int m -> CoreLang Int n -> CoreLang Int  (S (Add m n))
     --Minus :: CoreLang Int m -> CoreLang Int n -> CoreLang Int  (S (Add m n))
@@ -56,13 +76,18 @@ data CoreLang t (s :: Nat) where
 
     -- List operations
     Map  :: CoreLang (TypePack (List (TypePack a) s)) n
-        -> (CoreLang (TypePack Int) Z -> CoreLang (TypePack a) Z -> CoreLang (TypePack b) fTime)
-        -> CoreLang (TypePack (List (TypePack b) s)) (Add n (Mult fTime s))
+         -> (CoreLang (TypePack Int) Z -> CoreLang (TypePack a) Z -> CoreLang (TypePack b) fTime)
+         -> CoreLang (TypePack (List (TypePack b) s)) (Add n (Mult fTime s))
 
     Fold  :: CoreLang (TypePack (List (TypePack a) s)) n
-        -> CoreLang (TypePack b) n0 -- accumulator
-        -> (CoreLang (TypePack Int) Z -> CoreLang (TypePack a) Z -> CoreLang (TypePack b) Z -> CoreLang (TypePack b) fTime)
-        -> CoreLang (TypePack b) (Add n (Add n0 (Mult fTime s)))
+          -> CoreLang (TypePack b) n0 -- accumulator
+          -> (CoreLang (TypePack Int) Z -> CoreLang (TypePack a) Z -> CoreLang (TypePack b) Z -> CoreLang (TypePack b) fTime)
+          -> CoreLang (TypePack b) (Add n (Add n0 (Mult fTime s)))
+
+    Zip :: CoreLang (TypePack (List (TypePack a) s)) n
+        -> CoreLang (TypePack (List (TypePack b) s)) m
+        -> CoreLang (TypePack (List (TypePack ((TypePack a), (TypePack b))) s)) (Add n (Add m s))
+
 
     -- Misc - actually, the relevant stuff
     -- Conditional
@@ -84,14 +109,10 @@ instance Show t => Show (CoreLang t s) where
 --    show (Fold f i l) = "(Fold f " ++ show i ++ " " ++ show l ++ ")"
 
 
-typeUnpack :: TypePack a -> a
-typeUnpack (I i)    = i
-typeUnpack (B b)    = b
-typeUnpack (L l)    = l
-
 --An interpreter
 interpret :: CoreLang t m -> t
 interpret (Lit l)  = l
+
 
 interpret (Or a b) = let
                         a'@(B a'') = interpret a
@@ -105,6 +126,16 @@ interpret (And a b) = let
                     in 
                         B (a'' && b'')
 
+
+-- Sum types
+interpret (SumL a) = E (InL (interpret a))
+interpret (SumR a) = E (InR (interpret a))
+
+interpret (Case a f g) = case (interpret a) of
+                           (E (InL b)) -> interpret (f (Lit b))
+                           (E (InR c)) -> interpret (g (Lit c))
+
+-- Product types
 interpret (Fst p) = case (interpret p) of
                       (P a b) -> a
 
@@ -113,6 +144,7 @@ interpret (Scn p) = case (interpret p) of
 
 interpret (Pair a b) = (P (interpret a) (interpret b))
 
+-- List operations
 interpret (Map list f) = doMap (interpret list) f 0
   where
     doMap :: TypePack (List (TypePack a) s) -> (CoreLang (TypePack Int) Z -> CoreLang (TypePack a) Z -> CoreLang (TypePack b) fTime) -> Int -> TypePack (List (TypePack b) s)
@@ -126,13 +158,24 @@ interpret (Fold list n f) = doFold (interpret list) f (interpret n) 0
     doFold (L Nill) f n count          = n
     doFold (L (x ::: xs)) f n count    = doFold (L xs) (f) (interpret (f (Lit (I count)) (Lit x) (Lit n))) (count + 1)
 
+interpret (Zip xs ys) = doZip (interpret xs) (interpret ys)
+  where
+    doZip :: TypePack (List (TypePack a) s) -> TypePack (List (TypePack b) s) -> TypePack (List (TypePack ((TypePack a), (TypePack b))) s)
+    doZip (L Nill) (L Nill) = (L Nill)
+    doZip (L (x ::: xs)) (L (y ::: ys)) = case (doZip (L xs) (L ys)) of
+                                            (L e) -> L(P x y ::: e)
 
+
+-- If
 interpret (If cond tBranch fBranch) = let 
                                         cond'@(B cond'') = interpret cond
                                         tBranch' = interpret tBranch
                                         fBranch' = interpret fBranch
                                     in
                                         if cond'' then tBranch' else fBranch'
+
+
+------------- END INTERPRETER -------------
 
 listBools = Lit $ L (B False ::: B False ::: B True ::: B False ::: Nill)
 
@@ -153,6 +196,8 @@ user3Pass = L (I 99 ::: I 111 ::: I 109 ::: I 109 ::: I 111 ::: I 110 ::: I 32 :
 
 
 listUsers = Lit $ L (I 34 ::: Nill)
+
+stuff = Fst (Pair (Lit (B True)) (Lit (I 1)))
 
 
 mapTest list = (Map list (\_ b -> (And
