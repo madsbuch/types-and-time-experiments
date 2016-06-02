@@ -22,7 +22,20 @@ As the most important core types we have
 * __Product:__
 * __List:__
 
-furthermore we  have some
+Many target architectures utilize special operations to perform fast
+computations for specific types. It is therefore very common to have
+special types built into a source language, to allow the programmer to
+utilize these coonstructs.
+
+To make it easier for us to program applications we have built-in
+support for following types:
+
+* __Int:__ These fixed-width integers. We built in literal constructor
+  and the usualy operations. We assume all operations take constant
+  equal time.
+* __Booleans:__ Booleans along with typical operations. The assumption
+  is, again, that the operations take constant, equal time.
+
 
 # Applications
 It is hard to directly write in expressed language. Even though we rely on
