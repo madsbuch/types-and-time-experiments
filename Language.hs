@@ -50,6 +50,9 @@ data CoreLang t (s :: Nat) where
     -- Literals
     Lit   :: TypePack a -> CoreLang (TypePack a) Z
 
+    -- Skip
+    Skip :: CoreLang (TypePack a) n -> CoreLang (TypePack a) (S n)
+
     -- Booleans
     And  :: CoreLang (TypePack Bool) m -> CoreLang (TypePack Bool) n -> CoreLang (TypePack Bool) (S (Add m n))
     Or   :: CoreLang (TypePack Bool) m -> CoreLang (TypePack Bool) n -> CoreLang (TypePack Bool) (S (Add m n))
@@ -115,6 +118,7 @@ interpret :: CoreLang t m -> t
 
 -- Basic operations
 interpret (Lit l)  = l
+interpret (Skip a) = interpret a
 interpret (Or a b) = let
                         a'@(B a'') = interpret a
                         b'@(B b'') = interpret b
@@ -220,27 +224,52 @@ interpret (If cond tBranch fBranch) = let
 
 ------------- END INTERPRETER -------------
 
-listBools = Lit $ L (B False ::: B False ::: B True ::: B False ::: Nill)
 
 
-{-
-user1Name = L (I 119 ::: I 101 ::: I 98 ::: I 98 ::: I 105 ::: I 101 ::: I 115 ::: Nill) -- "webbies"
-user1Pass = L (I 104 ::: I 117 ::: I 110 ::: I 116 ::: I 101 ::: I 114 ::: I 50  ::: Nill) -- "hunter2"
-user1 = Lit $ L (user1Name ::: user1Pass ::: Nill)
+--- USER/PASSWORD EXAMPLE ---
+hash pass = let
+              multList = (Map pass (\count char -> Time char (Time count char)))
+              folded = Fold multList (Lit (I 0)) (\_ a b -> Plus a b)
+            in
+              folded
 
-user2Name = L (I 119 ::: I 97 ::: I 114 ::: I 108 ::: I 105 ::: I 122 ::: I 122 ::: I 97 ::: I 114 ::: I 100 ::: Nill) -- "warlizard"
-user2Pass = L (I 112 ::: I 97 ::: I 115 ::: I 115 ::: I 119 ::: I 111 ::: I 114 ::: I 100 ::: Nill ) -- "password"
-user2 = Lit $ L (user2Name ::: user2Pass ::: Nill)
+-- "webbies"
+user1Name = L (I 119 ::: I 101 ::: I 98 ::: I 98 ::: I 105 ::: I 101 ::: I 115 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: Nill)
+-- "hunter2"
+user1Pass = L (I 104 ::: I 117 ::: I 110 ::: I 116 ::: I 101 ::: I 114 ::: I 50 ::: I 0  ::: I 0  ::: I 0  ::: I 0  ::: I 0  ::: I 0  ::: I 0  ::: I 0  ::: I 0  ::: I 0  ::: I 0  ::: I 0  ::: I 0  ::: I 0  ::: I 0  ::: I 0  ::: I 0  ::: I 0  ::: I 0  ::: I 0  ::: I 0  ::: I 0  ::: I 0  ::: Nill)
+user1 = (P (P user1Name (I 0)) user1Pass)
 
-user3Name = L (I 82 ::: I 97 ::: I 110 ::: I 100 ::: I 97 ::: I 108 ::: I 108 ::: Nill) -- "Randall"
-user3Pass = L (I 99 ::: I 111 ::: I 109 ::: I 109 ::: I 111 ::: I 110 ::: I 32 ::: I 104 ::: I 111 ::: I 114 ::: I 115 ::: I 101 ::: I 32 ::: I 98 ::: I 97 ::: I 116 ::: I 116 ::: I 101 ::: I 114 ::: I 121 ::: I 32 ::: I 115 ::: I 116 ::: I 97 ::: I 112 ::: I 108 ::: I 101 ::: Nill) -- "common horse battery staple"
+ -- "warlizard"
+user2Name = L (I 119 ::: I 97 ::: I 114 ::: I 108 ::: I 105 ::: I 122 ::: I 122 ::: I 97 ::: I 114 ::: I 100 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: Nill)
+ -- "password"
+user2Pass = L (I 112 ::: I 97 ::: I 115 ::: I 115 ::: I 119 ::: I 111 ::: I 114 ::: I 100 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: Nill )
+user2 = (P (P user2Name (I 1)) user2Pass)
 
--}
+ -- "Randall"
+user3Name = L (I 82 ::: I 97 ::: I 110 ::: I 100 ::: I 97 ::: I 108 ::: I 108 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: Nill)
+ -- "common horse battery staple"
+user3Pass = L (I 99 ::: I 111 ::: I 109 ::: I 109 ::: I 111 ::: I 110 ::: I 32 ::: I 104 ::: I 111 ::: I 114 ::: I 115 ::: I 101 ::: I 32 ::: I 98 ::: I 97 ::: I 116 ::: I 116 ::: I 101 ::: I 114 ::: I 121 ::: I 32 ::: I 115 ::: I 116 ::: I 97 ::: I 112 ::: I 108 ::: I 101 ::: I 0 ::: I 0 ::: I 0 ::: Nill)
+user3 = (P (P user3Name (I 2)) user3Pass)
+
+hashUser user = Pair (Fst user) (hash (Scn user))
+
+hashedUsers = Map (Lit $ L (user1 ::: user2 ::: user3 ::: Nill)) (\_ user -> hashUser user)
+
+equalIntList xs ys = Fold (Map (Zip xs ys) (\_ p -> IEq (Fst p) (Scn p))) (Lit (B True)) (\_ a b -> And a b)
+
+testUser user name password = And (equalIntList (Fst (Fst user)) name) (IEq (Scn user) password)
+
+getUserId users username password =
+    Fold users (SumL (Lit (U ()))) (\_ candidate acc ->
+        If (testUser candidate username password)
+            (SumR (Scn (Fst candidate)))
+            (Skip (Skip (SumL (Lit (U ())))))
+    )
+
+foo = getUserId hashedUsers (Lit user1Name) (hash (Lit user1Pass))
 
 
-listUsers = Lit $ L (I 34 ::: Nill)
 
-stuff = Fst (Pair (Lit (B True)) (Lit (I 1)))
 
 
 mapTest list = (Map list (\_ b -> (And
