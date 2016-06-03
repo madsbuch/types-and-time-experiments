@@ -12,6 +12,8 @@ programmer to prove the absense of timing attacks.
 
 # Introduction
 
+
+
 # The Language
 
 ## Core Types
@@ -22,6 +24,8 @@ As the most important core types we have
 * __Product:__
 * __List:__
 
+
+## Perifical Types
 Many target architectures utilize special operations to perform fast
 computations for specific types. It is therefore very common to have
 special types built into a source language, to allow the programmer to
@@ -40,3 +44,7 @@ support for following types:
 # Applications
 It is hard to directly write in expressed language. Even though we rely on
 much inference, the type errors and other things are.
+
+## User Authentication
+
+# Conclusion
