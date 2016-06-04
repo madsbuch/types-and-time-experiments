@@ -74,7 +74,7 @@ equalIntList xs ys = Fold (Map (Zip xs ys) (\_ p -> IEq (Fst p) (Scn p))) (Lit (
 
 testUser user name password = And (equalIntList (Fst (Fst user)) name) (IEq (Scn user) password)
 
-getUserId users username password =
+getUserId users (Lit username) (Lit password) =
     Fold users (SumL (Lit (U ()))) (\_ candidate acc ->
         If (testUser candidate username password)
             (SumR (Scn (Fst candidate)))

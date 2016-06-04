@@ -11,10 +11,12 @@ attacks that takes advantage of the type system. The approach forces the
 programmer to prove the absense of timing attacks.
 
 # Introduction
-
+Some introducing text here
 
 
 # The Language
+
+* __Execution Strategy:__
 
 ## Core Types
 As the most important core types we have
