@@ -35,12 +35,12 @@ data List a (size :: Nat) where
 data SumType a b = InL a | InR b
 
 data TypePack a where
-    B :: Bool     -> TypePack Bool
-    L :: List a s -> TypePack (List a s)
-    I :: Int      -> TypePack Int
-    U :: () -> TypePack ()
-    P :: a -> b  -> TypePack (a, b)
-    E :: SumType a b  -> TypePack (SumType a b)
+    B :: Bool       -> TypePack Bool
+    L :: List a s   -> TypePack (List a s)
+    I :: Int        -> TypePack Int
+    U :: ()         -> TypePack ()
+    P :: a -> b     -> TypePack (a, b)
+    E :: SumType a b-> TypePack (SumType a b)
 
 data BoolT = FalseT | TrueT
 

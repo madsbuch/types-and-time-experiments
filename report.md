@@ -47,4 +47,32 @@ much inference, the type errors and other things are.
 
 ## User Authentication
 
+# Security
+In this section we will go over the security
+
+## Leackage
+Leackage is expressed as a function over the input list-size.
+
+## Target Architecture
+As what all we do is static, ew have no guarantee that it is actually carried
+out on the target architecture. For everything to work in reality, we need
+the interpreter or the compiler to take the type annotations into account.
+
+With compilation we frst need to varify that the target platform satisfies our
+
+# Perspectives
+
+## Weighting Operation Time
+We have assumed that all aritmetical operantions, `plus`, `minus`, `times`, and
+`divide`, take the same time, namely one time step. Furthermore we have also
+assumed that `or` and `and` does so.
+
+It might be unfair to assume that operations on different types take the same
+time to execute. But depending on the target architecture the proportions
+reduce to good approximations.
+
+__Single Cycle Instructions:__
+
+__Complex Architectures:__
+
 # Conclusion
