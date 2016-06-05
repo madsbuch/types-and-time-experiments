@@ -38,7 +38,7 @@ data TypePack a where
     B :: Bool       -> TypePack Bool
     L :: List a s   -> TypePack (List a s)
     I :: Int        -> TypePack Int
-    U :: ()         -> TypePack ()
+    U ::               TypePack ()
     P :: a -> b     -> TypePack (a, b)
     E :: SumType a b-> TypePack (SumType a b)
 
@@ -103,10 +103,17 @@ instance Show a => Show (List a s) where
     show (x ::: xs) = (show x) ++ " ::: " ++ (show xs)
     show (Nill)     = "Nill" 
 
+instance (Show a, Show b) => Show (SumType a b) where
+    show (InL a) = "(InL " ++ show a ++ ")"
+    show (InR a) = "(InR " ++ show a ++ ")"
+
 instance Show a => Show (TypePack a) where
-    show (B b) = "(B " ++ show b ++ ")"
-    show (I i) = "(I " ++ show i ++ ")"
-    show (L l) = "(L " ++ show l ++ ")"
+    show (B b)    = "(B " ++ show b ++ ")"
+    show (I i)    = "(I " ++ show i ++ ")"
+    show (L l)    = "(L " ++ show l ++ ")"
+    show (U)      = "()"
+    --show (P a)  = "(" ++ show a ++ ", " ++ show b ++ ")"
+    show (E a)    = "(E " ++ show a ++ ")"
 
 instance Show t => Show (CoreLang t s) where
     show (Lit l) = (show l)
@@ -224,12 +231,7 @@ interpret (If cond tBranch fBranch) = let
 
 ------------- END INTERPRETER -------------
 
-
-
-
-
-
-
+-- A couple of basic tests
 
 
 mapTest list = (Map list (\_ b -> (And
@@ -247,57 +249,3 @@ doesTypeCheckTest = If
                 (And (Lit (B True)) (Lit (B False)))
                 (Or (Lit (B True)) (Lit (B False)))
 
-{- Some Applications -}
-
--- Secure login, User
-
--- ordinary Haskell
---checkUser us ul = foldl (||) False (map (==us) ul)
-
---userList = LList (LInt 133 ::: LInt 3434 ::: LInt 23234 ::: LInt 3434 ::: Nill)
---userCheckTrue  = (LInt 133)
---userCheckFalse = (LInt 323)
-
-
-{-
-This first example generates a program which can check if a user exists in a list
--}
--- Note that we can force literals in the type
---checkUser :: CoreLang Int Z 
---    -> CoreLang (List (CoreLang Int Z) s) (S (Add Z Z)) 
---    -> CoreLang Bool (Add (Mult s (S Z)) Z)
-
---elementEquals x xs = (Map xs (\y -> (IEq y x)))
-{-
-doOr :: CoreLang Bool m -> CoreLang Bool n -> CoreLang Bool (S (Add m n))
-doOr a b = (Or a b)
-
-false :: CoreLang Bool Z
-false = (Lit $ B False)
-
-
---foldOr :: CoreLang (List Bool s) s -> CoreLang Bool s
---foldOr xs = (Fold doOr false xs)
-
---    Fold :: (CoreLang a m1 -> CoreLang a m2 -> CoreLang a (S (Add m1 m2))) -- function, only constant operations time
---        -> CoreLang a n0 -- Neutral element
---        -> CoreLang (List (CoreLang a n1) s) n2 --list to fold over
---        -> CoreLang a (Add (Mult s (S (Add m1 m2))) n0)
-
--- checkUser user uList         = 
--}
--- Generate expression for execution
---cuExp = checkUser (LInt 133) userList
-
-
--- Safe multi threading (relate to the presented paper)
-
-{-
-
-# Problems doing this:
-
-## Fold
-
-* Functions used to fold has to be dependent, so we can statically infer running time
-
--}

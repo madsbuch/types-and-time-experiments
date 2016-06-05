@@ -74,15 +74,21 @@ equalIntList xs ys = Fold (Map (Zip xs ys) (\_ p -> IEq (Fst p) (Scn p))) (Lit (
 
 testUser user name password = And (equalIntList (Fst (Fst user)) name) (IEq (Scn user) password)
 
-getUserId users (Lit username) (Lit password) =
-    Fold users (SumL (Lit (U ()))) (\_ candidate acc ->
-        If (testUser candidate username password)
-            (SumR (Scn (Fst candidate)))
-            (Skip (Skip (SumL (Lit (U ())))))
-    )
+--getUserId :: UserList s -> Username -> Password -> TypePack Int
+getUserId users uName pWord = let
+                                        username = uName
+                                        password = pWord
+                                    in
+                                        Fold users (SumL (Lit U)) (\_ candidate acc ->
+                                            If (testUser candidate username password)
+                                                (SumR (Scn (Fst candidate)))
+                                                (Skip (Skip (SumL (Lit U))))
+                                        )
 
 foo = getUserId hashedUsers (Lit user1Name) (hash (Lit user1Pass))
 
 -- Test
+
+testHashUser = hashUser (Lit user1)
 
 --test1 = interpret (getUserId userList user1 user1Pass)
