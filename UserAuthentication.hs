@@ -20,13 +20,15 @@ testing if a user is in that list
 -- it easier for us to see what goes on
 
 -- We use the fixed-length integer string a whole let. There fore we make a type for it
-type String30 = TypePack (List (TypePack Int) (S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(S Z)))))))))))))))))))))))))))))))
+type Thirty = (S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(S Z))))))))))))))))))))))))))))))
+type String30 = TypePack (List (TypePack Int) Thirty)
 
 -- UserName Is a fixed-length list of integers
 type Username = String30
 type Password = String30
 
 type User = TypePack ((TypePack (Username, (TypePack Int))), Password)
+type HashedUser = TypePack ((TypePack (Username, (TypePack Int))), (TypePack Int))
 
 type UserList s = TypePack (List User s)
 
@@ -65,7 +67,7 @@ user3 = (P (P user3Name (I 2)) user3Pass)
 userList :: UserList (S (S (S Z)))
 userList = L (user1 ::: user2 ::: user3 ::: Nill)
 
-
+--hashUser :: User -> CoreLang HashedUser ('S ('S (Add Z ('S (Add (Add Z (Add Thirty (Add Thirty 'Z))) (Add Thirty 'Z))))))
 hashUser user = Pair (Fst user) (hash (Scn user))
 
 hashedUsers = Map (Lit $ L (user1 ::: user2 ::: user3 ::: Nill)) (\_ user -> hashUser user)
@@ -85,7 +87,7 @@ getUserId users uName pWord = let
                                                 (Skip (Skip (SumL (Lit U))))
                                         )
 
-foo = getUserId hashedUsers (Lit user1Name) (hash (Lit user1Pass))
+test = getUserId hashedUsers (Lit user1Name) (hash (Lit user1Pass))
 
 -- Test
 
