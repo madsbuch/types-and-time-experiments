@@ -79,16 +79,13 @@ data CoreLang t (s :: Nat) where
 
     -- List operations
     Map  :: CoreLang (TypePack (List (TypePack a) s)) n
-         -> (CoreLang (TypePack Int) Z -> CoreLang (TypePack a) Z -> CoreLang (TypePack b) fTime)
+         -> (CoreLang (TypePack a) Z -> CoreLang (TypePack b) fTime)
          -> CoreLang (TypePack (List (TypePack b) s)) (Add n (Mult fTime s))
 
     Fold  :: CoreLang (TypePack (List (TypePack a) s)) n
           -> CoreLang (TypePack b) n0 -- accumulator
-          -> (CoreLang (TypePack Int) Z -> CoreLang (TypePack a) Z -> CoreLang (TypePack b) Z -> CoreLang (TypePack b) fTime)
+          -> (CoreLang (TypePack a) Z -> CoreLang (TypePack b) Z -> CoreLang (TypePack b) fTime)
           -> CoreLang (TypePack b) (Add n (Add n0 (Mult fTime s)))
-
-    Length :: CoreLang (TypePack (List (TypePack a) s)) n
-           -> CoreLang (TypePack Int) (S n)
 
     Zip :: CoreLang (TypePack (List (TypePack a) s)) n
         -> CoreLang (TypePack (List (TypePack b) s)) m
@@ -121,120 +118,151 @@ instance Show t => Show (CoreLang t s) where
 
 
 --An interpreter
-interpret :: CoreLang t m -> t
+interpret :: CoreLang t m -> (t, Integer)
 
 -- Basic operations
-interpret (Lit l)  = l
-interpret (Skip a) = interpret a
+interpret (Lit l)  = (l, 0)
+interpret (Skip a) = let
+                        a'@(a'', t) = interpret a
+                     in
+                        (a'', t+1)
 interpret (Or a b) = let
-                        a'@(B a'') = interpret a
-                        b'@(B b'') = interpret b
+                        a'@(B a'', t1) = interpret a
+                        b'@(B b'', t2) = interpret b
                     in 
-                        B (a'' || b'')
+                        (B (a'' || b''), t1+t2+1)
 
 interpret (And a b) = let
-                        a'@(B a'') = interpret a
-                        b'@(B b'') = interpret b
+                        a'@(B a'', t1) = interpret a
+                        b'@(B b'', t2) = interpret b
                     in 
-                        B (a'' && b'')
+                        (B (a'' && b''), t1+t2+1)
 
 interpret (Not a) = let
-                        a'@(B a'') = interpret a
+                        a'@(B a'', t) = interpret a
                     in
-                        B (a'')
+                        (B (not a''), t+1)
 
 interpret (Plus a b) = let
-                          a'@(I a'') = interpret a
-                          b'@(I b'') = interpret b
-                      in
-                          I (a'' + b'')
+                          a'@(I a'', t1) = interpret a
+                          b'@(I b'', t2) = interpret b
+                       in
+                          (I (a'' + b''), t1+t2+1)
 
 interpret (Minus a b) = let
-                          a'@(I a'') = interpret a
-                          b'@(I b'') = interpret b
+                          a'@(I a'', t1) = interpret a
+                          b'@(I b'', t2) = interpret b
                       in
-                          I (a'' - b'')
+                          (I (a'' - b''), t1+t2+1)
 
 interpret (Time a b) = let
-                          a'@(I a'') = interpret a
-                          b'@(I b'') = interpret b
+                          a'@(I a'', t1) = interpret a
+                          b'@(I b'', t2) = interpret b
                       in
-                          I (a'' * b'')
+                          (I (a'' * b''), t1+t2+1)
 
 interpret (Div a b) = let
-                          a'@(I a'') = interpret a
-                          b'@(I b'') = interpret b
+                          a'@(I a'', t1) = interpret a
+                          b'@(I b'', t2) = interpret b
                       in
-                          I (div a''  b'')
+                          (I (div a''  b''), t1+t2+1)
 
 interpret (IEq a b) = let
-                          a'@(I a'') = interpret a
-                          b'@(I b'') = interpret b
+                          a'@(I a'', t1) = interpret a
+                          b'@(I b'', t2) = interpret b
                       in
-                          B (a'' == b'')
+                          (B (a'' == b''), t1+t2+1)
 
 
 -- Sum types
-interpret (SumL a) = E (InL (interpret a))
-interpret (SumR a) = E (InR (interpret a))
+interpret (SumL a) = let
+                        a'@(a'', t) = interpret a
+                     in
+                        ((E (InL a'')), t+1)
+interpret (SumR a) = let
+                        a'@(a'', t) = interpret a
+                     in
+                        (E (InR a''), t+1)
 
-interpret (Case a f g) = case (interpret a) of
-                           (E (InL b)) -> interpret (f (Lit b))
-                           (E (InR c)) -> interpret (g (Lit c))
+interpret (Case a f g) = (case (interpret a) of
+                           (E (InL b), t) -> pack t (interpret (f (Lit b)))
+                           (E (InR c), t) -> pack t (interpret (g (Lit c))))
+  where
+    pack t1 (a, t2) = (a, t1+t2+1)
 
 -- Product types
 interpret (Fst p) = case (interpret p) of
-                      (P a b) -> a
+                       ((P a b), t) -> (a, t+1)
 
 interpret (Scn p) = case (interpret p) of
-                    (P a b) -> b
+                       ((P a b), t) -> (b, t+1)
 
-interpret (Pair a b) = (P (interpret a) (interpret b))
+interpret (Pair a b) = let
+                        a'@(a'', t1) = interpret a
+                        b'@(b'', t2) = interpret b
+                       in
+                        (P (a'') (b''), t1+t2+1)
 
 -- List operations
 
-interpret (Length list) = I (findLength (interpret list))
-  where
-    findLength :: TypePack (List (TypePack a) s) -> Int
-    findLength (L Nill) = 0
-    findLength (L (x ::: xs)) = 1 + (findLength (L xs))
 
-interpret (Map list f) = doMap (interpret list) f 0
+interpret (Map list f) = let
+                            a@(a', t1) = interpret list
+                            b@(b', t2) = doMap a' f
+                         in
+                            (b', t1+t2)
   where
-    doMap :: TypePack (List (TypePack a) s) -> (CoreLang (TypePack Int) Z -> CoreLang (TypePack a) Z -> CoreLang (TypePack b) fTime) -> Int -> TypePack (List (TypePack b) s)
-    doMap (L Nill) f count          = (L Nill)
-    doMap (L (x ::: xs)) f count    = case (doMap (L xs) f (count + 1)) of
-                                           (L e) -> (L ((interpret (f (Lit (I count)) (Lit x))) ::: e))
+    doMap :: TypePack (List (TypePack a) s) -> (CoreLang (TypePack a) Z -> CoreLang (TypePack b) fTime) -> (TypePack (List (TypePack b) s), Integer)
+    doMap (L Nill) f          = ((L Nill), 0)
+    doMap (L (x ::: xs)) f    = case (doMap (L xs) f) of
+                                           ((L e), t1) -> case (interpret (f (Lit x))) of
+                                                (i, t2) -> ((L (i ::: e)), t1+t2)
 
-interpret (Fold list n f) = doFold (interpret list) f (interpret n) 0
-  where
-    doFold :: TypePack (List (TypePack a) s) -> (CoreLang (TypePack Int) Z -> CoreLang (TypePack a) Z -> CoreLang (TypePack b) Z -> CoreLang (TypePack b) fTime) -> TypePack b -> Int -> (TypePack b)
-    doFold (L Nill) f n count          = n
-    doFold (L (x ::: xs)) f n count    = doFold (L xs) (f) (interpret (f (Lit (I count)) (Lit x) (Lit n))) (count + 1)
 
-interpret (Zip xs ys) = doZip (interpret xs) (interpret ys)
+interpret (Fold list n f) = let
+                                l'@(l'', t1) = (interpret list)
+                                n'@(n'', t2) = (interpret n)
+                                d'@(d'', t3) = doFold l'' f n''
+                            in
+                                (d'', t1+t2+t3)                                
   where
-    doZip :: TypePack (List (TypePack a) s) -> TypePack (List (TypePack b) s) -> TypePack (List (TypePack ((TypePack a), (TypePack b))) s)
-    doZip (L Nill) (L Nill) = (L Nill)
+    doFold :: TypePack (List (TypePack a) s) -> (CoreLang (TypePack a) Z -> CoreLang (TypePack b) Z -> CoreLang (TypePack b) fTime) -> TypePack b -> (TypePack b, Integer)
+    doFold (L Nill) f n          = (n, 0)
+    doFold (L (x ::: xs)) f n    = let
+                                    i@(i', t1) = interpret (f (Lit x) (Lit n))
+                                    g@(g', t2) = doFold (L xs) f i'
+                                   in
+                                    (g', t1+t2)
+
+interpret (Zip xs ys) = let
+                            a'@(a'', t1)  = interpret xs
+                            b'@(b'', t2)  = interpret ys
+                            dz@(dz'', t3) = doZip a'' b''
+                        in
+                            (dz'', t1+t2+t3)
+  where
+    doZip :: TypePack (List (TypePack a) s) -> TypePack (List (TypePack b) s) -> (TypePack (List (TypePack ((TypePack a), (TypePack b))) s), Integer)
+    doZip (L Nill) (L Nill) = (L Nill, 0)
     doZip (L (x ::: xs)) (L (y ::: ys)) = case (doZip (L xs) (L ys)) of
-                                            (L e) -> L(P x y ::: e)
+                                            ((L e), t) -> (L(P x y ::: e), t+1)
 
 
 -- If
 interpret (If cond tBranch fBranch) = let 
-                                        cond'@(B cond'') = interpret cond
-                                        tBranch' = interpret tBranch
-                                        fBranch' = interpret fBranch
+                                        cond'@(B cond'', t1) = interpret cond
+                                        tb@(tBranch', tt) = interpret tBranch
+                                        fb@(fBranch', tf) = interpret fBranch
                                     in
-                                        if cond'' then tBranch' else fBranch'
+                                        if cond'' then (tBranch', t1+tt) else (fBranch', t1+tf)
 
 
 ------------- END INTERPRETER -------------
 
 -- A couple of basic tests
 
+testList = Lit $ L (B True ::: B True ::: B False ::: B False ::: Nill )
 
-mapTest list = (Map list (\_ b -> (And
+mapTest list = (Map list (\b -> (And
     (And (Lit (B True)) b)) (Lit (B True)) ))
 
 -- Does not typecheck!!!
