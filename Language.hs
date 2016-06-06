@@ -68,7 +68,7 @@ data CoreLang t (s :: Nat) where
     Case  :: CoreLang (TypePack (SumType (TypePack a) (TypePack b))) n
           -> (CoreLang (TypePack a) Z -> CoreLang (TypePack c) m) -- In Left
           -> (CoreLang (TypePack b) Z -> CoreLang (TypePack c) m) -- In Right
-          -> CoreLang (TypePack c) (S (Add n m))
+          -> CoreLang (TypePack c) (S (S (Add n m)))
 
     -- Integer
     Plus  :: CoreLang (TypePack Int) m -> CoreLang (TypePack Int) n -> CoreLang (TypePack Int)  (S (Add m n))
@@ -80,16 +80,16 @@ data CoreLang t (s :: Nat) where
     -- List operations
     Map  :: CoreLang (TypePack (List (TypePack a) s)) n
          -> (CoreLang (TypePack a) Z -> CoreLang (TypePack b) fTime)
-         -> CoreLang (TypePack (List (TypePack b) s)) (Add n (Mult fTime s))
+         -> CoreLang (TypePack (List (TypePack b) s)) (S (Add n (Mult (S fTime) s)))
 
     Fold  :: CoreLang (TypePack (List (TypePack a) s)) n
           -> CoreLang (TypePack b) n0 -- accumulator
           -> (CoreLang (TypePack a) Z -> CoreLang (TypePack b) Z -> CoreLang (TypePack b) fTime)
-          -> CoreLang (TypePack b) (Add n (Add n0 (Mult fTime s)))
+          -> CoreLang (TypePack b) (S (Add n (Add n0 (Mult (S fTime) s))))
 
     Zip :: CoreLang (TypePack (List (TypePack a) s)) n
         -> CoreLang (TypePack (List (TypePack b) s)) m
-        -> CoreLang (TypePack (List (TypePack ((TypePack a), (TypePack b))) s)) (Add n (Add m s))
+        -> CoreLang (TypePack (List (TypePack ((TypePack a), (TypePack b))) s)) (S (Add n (Add m s)))
 
 
     -- Misc - actually, the relevant stuff
@@ -188,7 +188,7 @@ interpret (Case a f g) = (case (interpret a) of
                            (E (InL b), t) -> pack t (interpret (f (Lit b)))
                            (E (InR c), t) -> pack t (interpret (g (Lit c))))
   where
-    pack t1 (a, t2) = (a, t1+t2+1)
+    pack t1 (a, t2) = (a, t1+t2+2)
 
 -- Product types
 interpret (Fst p) = case (interpret p) of
@@ -210,13 +210,13 @@ interpret (Map list f) = let
                             a@(a', t1) = interpret list
                             b@(b', t2) = doMap a' f
                          in
-                            (b', t1+t2)
+                            (b', t1+t2+1)
   where
     doMap :: TypePack (List (TypePack a) s) -> (CoreLang (TypePack a) Z -> CoreLang (TypePack b) fTime) -> (TypePack (List (TypePack b) s), Integer)
     doMap (L Nill) f          = ((L Nill), 0)
     doMap (L (x ::: xs)) f    = case (doMap (L xs) f) of
                                            ((L e), t1) -> case (interpret (f (Lit x))) of
-                                                (i, t2) -> ((L (i ::: e)), t1+t2)
+                                                (i, t2) -> ((L (i ::: e)), t1+t2 + 1)
 
 
 interpret (Fold list n f) = let
@@ -224,7 +224,7 @@ interpret (Fold list n f) = let
                                 n'@(n'', t2) = (interpret n)
                                 d'@(d'', t3) = doFold l'' f n''
                             in
-                                (d'', t1+t2+t3)                                
+                                (d'', t1+t2+t3+1)                                
   where
     doFold :: TypePack (List (TypePack a) s) -> (CoreLang (TypePack a) Z -> CoreLang (TypePack b) Z -> CoreLang (TypePack b) fTime) -> TypePack b -> (TypePack b, Integer)
     doFold (L Nill) f n          = (n, 0)
@@ -232,14 +232,14 @@ interpret (Fold list n f) = let
                                     i@(i', t1) = interpret (f (Lit x) (Lit n))
                                     g@(g', t2) = doFold (L xs) f i'
                                    in
-                                    (g', t1+t2)
+                                    (g', t1+t2 + 1)
 
 interpret (Zip xs ys) = let
                             a'@(a'', t1)  = interpret xs
                             b'@(b'', t2)  = interpret ys
                             dz@(dz'', t3) = doZip a'' b''
                         in
-                            (dz'', t1+t2+t3)
+                            (dz'', t1+t2+t3+1)
   where
     doZip :: TypePack (List (TypePack a) s) -> TypePack (List (TypePack b) s) -> (TypePack (List (TypePack ((TypePack a), (TypePack b))) s), Integer)
     doZip (L Nill) (L Nill) = (L Nill, 0)
@@ -253,7 +253,7 @@ interpret (If cond tBranch fBranch) = let
                                         tb@(tBranch', tt) = interpret tBranch
                                         fb@(fBranch', tf) = interpret fBranch
                                     in
-                                        if cond'' then (tBranch', t1+tt) else (fBranch', t1+tf)
+                                        if cond'' then (tBranch', t1+tt+1) else (fBranch', t1+tf+1)
 
 
 ------------- END INTERPRETER -------------
@@ -276,4 +276,16 @@ doesTypeCheckTest = If
                 (Lit (B True)) 
                 (And (Lit (B True)) (Lit (B False)))
                 (Or (Lit (B True)) (Lit (B False)))
+				
+equalIntList xs ys = Fold (Map (Zip xs ys) (\p -> IEq (Fst p) (Scn p))) (Lit (B True)) (\a b -> And a b)
 
+
+list = Lit $ L (I 119 ::: I 101 ::: I 98 ::: Nill)
+
+foo e acc = If (And (IEq (Plus e acc) (Lit (I 10)))  (equalIntList list list))
+				(Lit (I 0)) 
+				(Lit (I 1))
+
+bar = foo (Lit $ I 0) (Lit $ I 2)
+
+test = Fold list (Lit (I 0)) (\e acc -> foo e acc)
