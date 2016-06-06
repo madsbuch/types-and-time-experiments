@@ -34,8 +34,8 @@ type UserList s = TypePack (List User s)
 
 -- An example of a password hashing mechanism
 hash pass = let
-              multList = (Map pass (\count char -> Time char (Time count char)))
-              folded = Fold multList (Lit (I 0)) (\_ a b -> Plus a b)
+              multList = (Map pass (\char -> Time char (Time char char)))
+              folded = Fold multList (Lit (I 0)) (\a b -> Plus a b)
             in
               folded
 
@@ -70,9 +70,9 @@ userList = L (user1 ::: user2 ::: user3 ::: Nill)
 --hashUser :: User -> CoreLang HashedUser ('S ('S (Add Z ('S (Add (Add Z (Add Thirty (Add Thirty 'Z))) (Add Thirty 'Z))))))
 hashUser user = Pair (Fst user) (hash (Scn user))
 
-hashedUsers = Map (Lit $ L (user1 ::: user2 ::: user3 ::: Nill)) (\_ user -> hashUser user)
+hashedUsers = Map (Lit $ L (user1 ::: user2 ::: user3 ::: Nill)) (\user -> hashUser user)
 
-equalIntList xs ys = Fold (Map (Zip xs ys) (\_ p -> IEq (Fst p) (Scn p))) (Lit (B True)) (\_ a b -> And a b)
+equalIntList xs ys = Fold (Map (Zip xs ys) (\p -> IEq (Fst p) (Scn p))) (Lit (B True)) (\a b -> And a b)
 
 testUser user name password = And (equalIntList (Fst (Fst user)) name) (IEq (Scn user) password)
 
@@ -81,7 +81,7 @@ getUserId users uName pWord = let
                                         username = uName
                                         password = pWord
                                     in
-                                        Fold users (SumL (Lit U)) (\_ candidate acc ->
+                                        Fold users (SumL (Lit U)) (\candidate acc ->
                                             (Case acc 
                                                 (\_ -> (If (testUser candidate username password) -- InL case
                                                     (SumR (Scn (Fst candidate))) -- Candidate Match
