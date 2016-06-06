@@ -66,8 +66,8 @@ data CoreLang t (s :: Nat) where
     SumL  :: CoreLang (TypePack a) n -> CoreLang (TypePack (SumType (TypePack a) (TypePack b))) (S n)
     SumR  :: CoreLang (TypePack b) n -> CoreLang (TypePack (SumType (TypePack a) (TypePack b))) (S n)
     Case  :: CoreLang (TypePack (SumType (TypePack a) (TypePack b))) n
-          -> (CoreLang (TypePack a) Z -> CoreLang (TypePack c) m)
-          -> (CoreLang (TypePack b) Z -> CoreLang (TypePack c) m)
+          -> (CoreLang (TypePack a) Z -> CoreLang (TypePack c) m) -- In Left
+          -> (CoreLang (TypePack b) Z -> CoreLang (TypePack c) m) -- In Right
           -> CoreLang (TypePack c) (S (Add n m))
 
     -- Integer

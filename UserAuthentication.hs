@@ -82,14 +82,27 @@ getUserId users uName pWord = let
                                         password = pWord
                                     in
                                         Fold users (SumL (Lit U)) (\_ candidate acc ->
-                                            If (testUser candidate username password)
-                                                (SumR (Scn (Fst candidate)))
-                                                (Skip (Skip (SumL (Lit U))))
+                                            (Case acc 
+                                                (\_ -> (If (testUser candidate username password) -- InL case
+                                                    (SumR (Scn (Fst candidate))) -- Candidate Match
+                                                    (Skip (Skip (SumL (Lit U)))) -- No Match
+                                                     ))
+                                                (\_ -> (If (testUser candidate username password) -- InR case, c/p for convenience
+                                                    (Skip (Skip (Skip (acc)))) -- Candidate Match
+                                                    (Skip (Skip (Skip (acc)))) -- No Match
+                                                     )))
                                         )
+
+-- Tests
+
+-- Should return (B True)
+testTestUser = testUser (hashUser (Lit user1)) (Lit user1Name) (hash (Lit user1Pass)) 
 
 test = getUserId hashedUsers (Lit user1Name) (hash (Lit user1Pass))
 
--- Test
+
+
+
 
 testHashUser = hashUser (Lit user1)
 
