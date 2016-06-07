@@ -51,7 +51,8 @@ data CoreLang t (s :: Nat) where
     Lit   :: TypePack a -> CoreLang (TypePack a) Z
 
     -- Skip
-    Skip :: CoreLang (TypePack a) n -> CoreLang (TypePack a) (S n)
+    Skip   :: CoreLang (TypePack a) n -> CoreLang (TypePack a) (S n)
+    UnSafe :: CoreLang (TypePack a) n -> CoreLang (TypePack a) Z
 
     -- Booleans
     And  :: CoreLang (TypePack Bool) m -> CoreLang (TypePack Bool) n -> CoreLang (TypePack Bool) (S (Add m n))
@@ -76,6 +77,8 @@ data CoreLang t (s :: Nat) where
     Time  :: CoreLang (TypePack Int) m -> CoreLang (TypePack Int) n -> CoreLang (TypePack Int)  (S (Add m n))
     Div   :: CoreLang (TypePack Int) m -> CoreLang (TypePack Int) n -> CoreLang (TypePack Int)  (S (Add m n))
     IEq   :: CoreLang (TypePack Int) m -> CoreLang (TypePack Int) n -> CoreLang (TypePack Bool) (S (Add m n))
+    ILt   :: CoreLang (TypePack Int) m -> CoreLang (TypePack Int) n -> CoreLang (TypePack Bool) (S (Add m n))
+    IGt   :: CoreLang (TypePack Int) m -> CoreLang (TypePack Int) n -> CoreLang (TypePack Bool) (S (Add m n))
 
     -- List operations
     Map  :: CoreLang (TypePack (List (TypePack a) s)) n
@@ -126,6 +129,12 @@ interpret (Skip a) = let
                         a'@(a'', t) = interpret a
                      in
                         (a'', t+1)
+                        
+interpret (UnSafe a) = let
+                        a'@(a'', t) = interpret a
+                     in
+                        (a'', 0) -- Is zerp, on purpose
+                        
 interpret (Or a b) = let
                         a'@(B a'', t1) = interpret a
                         b'@(B b'', t2) = interpret b
@@ -172,6 +181,18 @@ interpret (IEq a b) = let
                           b'@(I b'', t2) = interpret b
                       in
                           (B (a'' == b''), t1+t2+1)
+                          
+interpret (ILt a b) = let
+                          a'@(I a'', t1) = interpret a
+                          b'@(I b'', t2) = interpret b
+                      in
+                          (B (a'' < b''), t1+t2+1)
+                          
+interpret (IGt a b) = let
+                          a'@(I a'', t1) = interpret a
+                          b'@(I b'', t2) = interpret b
+                      in
+                          (B (a'' > b''), t1+t2+1)
 
 
 -- Sum types
@@ -276,15 +297,15 @@ doesTypeCheckTest = If
                 (Lit (B True)) 
                 (And (Lit (B True)) (Lit (B False)))
                 (Or (Lit (B True)) (Lit (B False)))
-				
+                
 equalIntList xs ys = Fold (Map (Zip xs ys) (\p -> IEq (Fst p) (Scn p))) (Lit (B True)) (\a b -> And a b)
 
 
 list = Lit $ L (I 119 ::: I 101 ::: I 98 ::: Nill)
 
 foo e acc = If (And (IEq (Plus e acc) (Lit (I 10)))  (equalIntList list list))
-				(Lit (I 0)) 
-				(Lit (I 1))
+                (Lit (I 0)) 
+                (Lit (I 1))
 
 bar = foo (Lit $ I 0) (Lit $ I 2)
 
