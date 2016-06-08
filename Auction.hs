@@ -92,13 +92,13 @@ isOfferAccepted offer conditions = Fold (Map conditions (\cond -> isConditionSat
 offer1 :: AuctionOffer
 offer1 = L ((I 0) ::: (I 10) ::: (I 25) ::: Nill)
 
-marchant1 = \offer -> UnSafe (isOfferAccepted offer (Lit auctionBuyer1Conditions))
+marchant1 = \offer -> (isOfferAccepted offer (Lit auctionBuyer1Conditions))
+
+interpMerchant marchant offer = fst (interpret (marchant (Lit offer)))
 
 -- Marchant 2, wants to buy crickets, ALL the crickets. 
-marchant2 = \offer -> UnSafe (IEq (atIndexWithDefault offer (Lit (I 0)) (Lit (I (-1)))) (Lit (I 2)))
+marchant2 = \offer -> IEq (atIndexWithDefault offer (Lit (I 0)) (Lit (I (-1)))) (Lit (I 2))
 
-marchants = [marchant1, marchant2]
+marchants = [interpMerchant marchant1, interpMerchant marchant2]
 
-foo = interpret (marchant1 (Lit offer1))
-
-acceptedOffer1 = map (\marchant -> fst (interpret (marchant1 (Lit offer1)))) marchants 
+acceptedOffer1 = map (\marchant -> marchant offer1) marchants 

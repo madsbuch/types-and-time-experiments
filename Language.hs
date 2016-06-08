@@ -44,7 +44,6 @@ data TypePack a where
 
 data BoolT = FalseT | TrueT
 
-
 -- Define the lagnuage
 data CoreLang t (s :: Nat) where
     -- Literals
@@ -52,7 +51,6 @@ data CoreLang t (s :: Nat) where
 
     -- Skip
     Skip   :: CoreLang (TypePack a) n -> CoreLang (TypePack a) (S n)
-    UnSafe :: CoreLang (TypePack a) n -> CoreLang (TypePack a) Z
 
     -- Booleans
     And  :: CoreLang (TypePack Bool) m -> CoreLang (TypePack Bool) n -> CoreLang (TypePack Bool) (S (Add m n))
@@ -129,11 +127,6 @@ interpret (Skip a) = let
                         a'@(a'', t) = interpret a
                      in
                         (a'', t+1)
-                        
-interpret (UnSafe a) = let
-                        a'@(a'', t) = interpret a
-                     in
-                        (a'', 0) -- Is zerp, on purpose
                         
 interpret (Or a b) = let
                         a'@(B a'', t1) = interpret a
