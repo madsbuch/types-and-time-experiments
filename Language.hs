@@ -7,6 +7,11 @@
 
 module Language where
 
+
+import Control.Concurrent (threadDelay)
+import System.CPUTime
+import Control.DeepSeq
+
 -- Type level natural
 data Nat = Z | S Nat
 
@@ -272,11 +277,6 @@ interpret (If cond tBranch fBranch) = let
 
 ------------- END INTERPRETER -------------
 
-
-import Control.Concurrent (threadDelay)
-import System.CPUTime
-import Control.DeepSeq
-
 timedInterpret :: CoreLang (TypePack a) t -> IO (TypePack a)
 timedInterpret exp = do
     start <- getCPUTime
@@ -287,6 +287,11 @@ timedInterpret exp = do
     let sleepTime = ((fromIntegral c) - ellapsed)
     threadDelay sleepTime -- from picosecond (10^-12) to mikrosecond (10^-6)
     return r
+
+instance NFData (TypePack a) where 
+    rnf (B a) = rnf a
+    rnf (I a) = rnf a
+    rnf (U)   = rnf ()
 
 
 -- A couple of basic tests
