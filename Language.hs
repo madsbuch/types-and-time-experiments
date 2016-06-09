@@ -272,6 +272,23 @@ interpret (If cond tBranch fBranch) = let
 
 ------------- END INTERPRETER -------------
 
+
+import Control.Concurrent (threadDelay)
+import System.CPUTime
+import Control.DeepSeq
+
+timedInterpret :: CoreLang (TypePack a) t -> IO (TypePack a)
+timedInterpret exp = do
+    start <- getCPUTime
+    let (r, cMilli) = (interpret exp)
+    let c = cMilli * 1000
+    end <- r `deepseq` getCPUTime
+    let ellapsed = (div ((fromIntegral end) - (fromIntegral start)) 1000000)
+    let sleepTime = ((fromIntegral c) - ellapsed)
+    threadDelay sleepTime -- from picosecond (10^-12) to mikrosecond (10^-6)
+    return r
+
+
 -- A couple of basic tests
 
 testList = Lit $ L (B True ::: B True ::: B False ::: B False ::: Nill )
