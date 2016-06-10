@@ -72,8 +72,6 @@ hashUser user = Pair (Fst user) (hash (Scn user))
 
 hashedUsers = Map (Lit $ L (user1 ::: user2 ::: user3 ::: Nill)) (\user -> hashUser user)
 
-equalIntList xs ys = Fold (Map (Zip xs ys) (\p -> IEq (Fst p) (Scn p))) (Lit (B True)) (\a b -> And a b)
-
 testUser user name password = And (equalIntList (Fst (Fst user)) name) (IEq (Scn user) password)
 
 --getUserId :: UserList s -> Username -> Password -> TypePack Int

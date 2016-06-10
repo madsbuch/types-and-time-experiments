@@ -4,7 +4,6 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
 
-
 module Auction where
 
 import Language 
@@ -12,6 +11,8 @@ import Language
 --- START AUCTION MODULE --- 
 
 -- Library functions
+
+-- | return element at index
 atIndex list index = Fold list (SumL (Lit (I 0))) (\e acc -> (
                     Case acc 
                         (\n -> 
@@ -23,9 +24,11 @@ atIndex list index = Fold list (SumL (Lit (I 0))) (\e acc -> (
                             (Skip (Skip (Skip (Skip (acc)))))
                         )
                  ))
-                 
+
+-- | Returns a default value on the atIndex function
 atIndexWithDefault list index def = Case (atIndex list index) (\_ -> def) (\x -> x)
-                 
+
+-- | Some testing
 atIndexTest = interpret (atIndex (Lit $ L ((I 0) ::: (I 3) ::: Nill)) (Lit (I 1))) -- Little test 
 
 
@@ -34,16 +37,6 @@ atIndexTest = interpret (atIndex (Lit $ L ((I 0) ::: (I 3) ::: Nill)) (Lit (I 1)
 -- 1: Cow. Normal price: 5000
 -- 2: Cricket. Normal price: 2
 -- 3: Salmon. Normal price 300
-
-{-
-CoreLang (TypePack (List (TypePack Int) s1)) n1
-     -> CoreLang
-          (TypePack
-             (TypePack Int,
-              TypePack (List (TypePack (TypePack Bool, TypePack Int)) s)))
-          n
-
--}
 
 
 --                  [ID, Quantity, price pr. item]
@@ -76,8 +69,6 @@ isConditionSatisfied offer condition = let
                                             )
 
                           
-
-                          
 auctionBuyer1Conditions :: AuctionOfferConditions (S (S Z))
 auctionBuyer1Conditions = L (
                             -- Wants to buy chicken for under 20, any quantity
@@ -90,15 +81,15 @@ auctionBuyer1Conditions = L (
 isOfferAccepted offer conditions = Fold (Map conditions (\cond -> isConditionSatisfied offer cond)) (Lit (B False)) (\a b -> Or a b)
 
 offer1 :: AuctionOffer
-offer1 = L ((I 0) ::: (I 10) ::: (I 25) ::: Nill)
+offer1 = L ((I 0) ::: (I 10) ::: (I 15) ::: Nill)
 
-marchant1 = \offer -> (isOfferAccepted offer (Lit auctionBuyer1Conditions))
+merchant1 = \offer -> (isOfferAccepted offer (Lit auctionBuyer1Conditions))
 
-interpMerchant marchant offer = fst (interpret (marchant (Lit offer)))
+interpMerchant merchant offer = fst (interpret (merchant (Lit offer)))
 
--- Marchant 2, wants to buy crickets, ALL the crickets. 
-marchant2 = \offer -> IEq (atIndexWithDefault offer (Lit (I 0)) (Lit (I (-1)))) (Lit (I 2))
+-- Merchant 2, wants to buy crickets, ALL the crickets. 
+merchant2 = \offer -> IEq (atIndexWithDefault offer (Lit (I 0)) (Lit (I (-1)))) (Lit (I 2))
 
-marchants = [interpMerchant marchant1, interpMerchant marchant2]
+merchants = [interpMerchant merchant1, interpMerchant merchant2]
 
-acceptedOffer1 = map (\marchant -> marchant offer1) marchants 
+acceptedOffer1 = map (\merchant -> merchant offer1) merchants 
