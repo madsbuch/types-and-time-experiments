@@ -7,7 +7,7 @@
 
 module Language where
 
-
+import Data.Bits
 import Control.Concurrent (threadDelay)
 import System.CPUTime
 import Control.DeepSeq
@@ -372,3 +372,5 @@ constructList ::  SNat s -> TypePack (List (TypePack Int) s)
 constructList SZero         = L Nill
 constructList (SSucc r)     = case (constructList r) of
                                 (L list) -> (L ((I (sNatToInt r) ) ::: list))
+
+theList a = foldr (:::) Nill [if (not $ 0 == ((.&.) (2^n) a)) then 1 else 0 | n<-[0..31]]
