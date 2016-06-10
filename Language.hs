@@ -84,6 +84,11 @@ data CoreLang t (s :: Nat) where
     IGt   :: CoreLang (TypePack Int) m -> CoreLang (TypePack Int) n -> CoreLang (TypePack Bool) (S (Add m n))
 
     -- List operations
+    
+    Cons :: CoreLang (TypePack (List (TypePack a) s)) n ->
+            CoreLang (TypePack a) m ->
+            CoreLang (TypePack (List (TypePack a) (S s))) (S (Add n m))
+    
     Map  :: CoreLang (TypePack (List (TypePack a) s)) n
          -> (CoreLang (TypePack a) Z -> CoreLang (TypePack b) fTime)
          -> CoreLang (TypePack (List (TypePack b) s)) (S (Add n (Mult (S fTime) s)))
@@ -224,6 +229,12 @@ interpret (Pair a b) = let
 
 -- List operations
 
+interpret (Cons list e) = let
+                            (l', t1) = interpret list
+                            (e', t2) = interpret e
+                          in 
+                            case l' of 
+                                (L l'') -> ((L (e' ::: l'')), t1+t2+1)
 
 interpret (Map list f) = let
                             a@(a', t1) = interpret list
