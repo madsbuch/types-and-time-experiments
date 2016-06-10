@@ -350,9 +350,6 @@ type instance Sub (S m) (S n)  = (Sub m n)
 class Sub a b => Leq a b where
 -}
 {-
-data SNat a where
-  SZero :: SNat Z
-  SSucc :: SNat a -> SNat (S a)
 
 data Refl a b = Refl a a
 data Leq  (x :: Nat) (y :: Nat) where
@@ -362,3 +359,16 @@ satisfies_limit :: SNat limit -> CoreLang a time -> Leq time limit
 satisfies_limit l e = Leq l l
 
 -}
+
+data SNat a where
+  SZero :: SNat Z
+  SSucc :: SNat a -> SNat (S a)
+
+sNatToInt :: SNat m -> Int
+sNatToInt SZero       = 0
+sNatToInt (SSucc t)   = (sNatToInt t) + 1
+
+constructList ::  SNat s -> TypePack (List (TypePack Int) s)
+constructList SZero         = L Nill
+constructList (SSucc r)     = case (constructList r) of
+                                (L list) -> (L ((I (sNatToInt r) ) ::: list))
