@@ -7,7 +7,7 @@
 
 module Language where
 
-
+import Data.Bits
 import Control.Concurrent (threadDelay)
 import System.CPUTime
 import Control.DeepSeq
@@ -119,12 +119,14 @@ instance (Show a, Show b) => Show (SumType a b) where
     show (InR a) = "(InR " ++ show a ++ ")"
 
 instance Show a => Show (TypePack a) where
-    show (B b)    = "(B " ++ show b ++ ")"
-    show (I i)    = "(I " ++ show i ++ ")"
-    show (L l)    = "(L " ++ show l ++ ")"
-    show (U)      = "()"
-    --show (P a)  = "(" ++ show a ++ ", " ++ show b ++ ")"
-    show (E a)    = "(E " ++ show a ++ ")"
+    show (B b)      = "(B " ++ show b ++ ")"
+    show (I i)      = "(I " ++ show i ++ ")"
+    show (L l)      = "(L " ++ show l ++ ")"
+    show (U)        = "()"
+    show (E a)      = "(E " ++ show a ++ ")"
+
+--instance (Show a, Show b) => Show (TypePack (a, b)) where
+--    show (P a b)    = "(" ++ show a ++ ", " ++ show b ++ ")"
 
 instance Show t => Show (CoreLang t s) where
     show (Lit l) = (show l)
@@ -334,7 +336,9 @@ doesTypeCheckTest = If
                 (Lit (B True)) 
                 (And (Lit (B True)) (Lit (B False)))
                 (Or (Lit (B True)) (Lit (B False)))
-                
+
+-- Standard operations
+         
 equalIntList xs ys = Fold (Map (Zip xs ys) (\p -> IEq (Fst p) (Scn p))) (Lit (B True)) (\a b -> And a b)
 
 
@@ -347,3 +351,37 @@ foo e acc = If (And (IEq (Plus e acc) (Lit (I 10)))  (equalIntList list list))
 bar = foo (Lit $ I 0) (Lit $ I 2)
 
 test = Fold list (Lit (I 0)) (\e acc -> foo e acc)
+
+-- Statically limit execution time
+{-
+type family Sub (n :: Nat) (m :: Nat) :: Nat
+type instance Sub Z     m      = m
+type instance Sub (S m) (S n)  = (Sub m n)
+
+class Sub a b => Leq a b where
+-}
+{-
+
+data Refl a b = Refl a a
+data Leq  (x :: Nat) (y :: Nat) where
+  Leq :: SNat x -> SNat y -> Leq (Sub x y) x
+
+satisfies_limit :: SNat limit -> CoreLang a time -> Leq time limit 
+satisfies_limit l e = Leq l l
+
+-}
+
+data SNat a where
+  SZero :: SNat Z
+  SSucc :: SNat a -> SNat (S a)
+
+sNatToInt :: SNat m -> Int
+sNatToInt SZero       = 0
+sNatToInt (SSucc t)   = (sNatToInt t) + 1
+
+constructList ::  SNat s -> TypePack (List (TypePack Int) s)
+constructList SZero         = L Nill
+constructList (SSucc r)     = case (constructList r) of
+                                (L list) -> (L ((I (sNatToInt r) ) ::: list))
+
+theList a = foldr (:::) Nill [if (not $ 0 == ((.&.) (2^n) a)) then 1 else 0 | n<-[0..31]]
