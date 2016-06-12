@@ -88,7 +88,7 @@ data CoreLang t (s :: Nat) where
     ILt   :: CoreLang (TypePack Int) m -> CoreLang (TypePack Int) n -> CoreLang (TypePack Bool) (S (Add m n))
     IGt   :: CoreLang (TypePack Int) m -> CoreLang (TypePack Int) n -> CoreLang (TypePack Bool) (S (Add m n))
 
-    Explode :: CoreLang (TypePack Int) m -> CoreLang (TypePack (List (TypePack Int) ThirtyTwo)) (S m)
+    Explode :: CoreLang (TypePack Int) m -> CoreLang (TypePack (List (TypePack Bool) ThirtyTwo)) (S m)
     
     -- List operations
     
@@ -137,7 +137,7 @@ instance Show t => Show (CoreLang t s) where
 --    show (Fold f i l) = "(Fold f " ++ show i ++ " " ++ show l ++ ")"
 
 
-getBit a n = if (not $ 0 == ((.&.) (2^n) a)) then (I 1) else (I 0) 
+getBit a n = if (not $ 0 == ((.&.) (2^n) a)) then (B True) else (B False) 
 explodeInt a = L $ (getBit a 0) ::: (getBit a 1) ::: (getBit a 2) ::: (getBit a 3) ::: (getBit a 4) ::: (getBit a 5) ::: (getBit a 6) ::: (getBit a 7) ::: (getBit a 8) ::: (getBit a 9) ::: (getBit a 10) ::: (getBit a 11) ::: (getBit a 12) ::: (getBit a 13) ::: (getBit a 14) ::: (getBit a 15) ::: (getBit a 16) ::: (getBit a 17) ::: (getBit a 18) ::: (getBit a 19) ::: (getBit a 20) ::: (getBit a 21) ::: (getBit a 22) ::: (getBit a 23) ::: (getBit a 24) ::: (getBit a 25) ::: (getBit a 26) ::: (getBit a 27) ::: (getBit a 28) ::: (getBit a 29) ::: (getBit a 30) ::: (getBit a 31) ::: Nill
 
 --An interpreter
@@ -382,6 +382,6 @@ buildList a1 = Let (Plus a1 a1) (\a2 -> Let (Plus a2 a2) (\a3 -> Let (Plus a3 a3
                     (Cons (Cons (Cons (Cons (Cons (Cons (Cons (Cons (Cons (Cons (Cons (Cons (Cons (Cons (Cons (Cons (Cons (Cons (Cons (Cons (Cons (Cons (Cons (Cons (Cons (Cons (Cons (Cons (Cons (Cons (Cons (Cons (Lit (L Nill)) a32) a31) a30) a29) a28) a27) a26) a25) a24) a23) a22) a21) a20) a19) a18) a17) a16) a15) a14) a13) a12) a11) a10) a9) a8) a7) a6) a5) a4) a3) a2) a1)
                )))))))))))))))))))))))))))))))
 
-mult a b = Fold (Map (Zip (buildList a) (Explode b)) (\p -> If (IEq (Scn p) (Lit (I 1))) (Fst p) (Skip (Lit (I 0))))) (Lit (I 0)) (\a b -> Plus a b)
+mult a b = Fold (Map (Zip (buildList a) (Explode b)) (\p -> If (Scn p) (Fst p) (Skip (Lit (I 0))))) (Lit (I 0)) (\a b -> Plus a b)
         
 test a b = timedInterpret (mult (Lit (I a)) (Lit (I b)))         
