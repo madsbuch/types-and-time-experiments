@@ -85,7 +85,7 @@ offer1 = L ((I 0) ::: (I 10) ::: (I 15) ::: Nill)
 
 merchant1 = \offer -> (isOfferAccepted offer (Lit auctionBuyer1Conditions))
 
-interpMerchant merchant offer = fst (interpret (merchant (Lit offer)))
+interpMerchant merchant offer = timedInterpret (merchant (Lit offer))
 
 -- Merchant 2, wants to buy crickets, ALL the crickets. 
 merchant2 = \offer -> IEq (atIndexWithDefault offer (Lit (I 0)) (Lit (I (-1)))) (Lit (I 2))
