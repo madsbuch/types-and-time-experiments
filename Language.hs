@@ -54,6 +54,9 @@ data CoreLang t (s :: Nat) where
     -- Literals
     Lit   :: TypePack a -> CoreLang (TypePack a) Z
 
+    -- Let
+    Let   :: CoreLang (TypePack a) n -> (CoreLang (TypePack a) Z -> CoreLang (TypePack b) m) -> CoreLang (TypePack b) (S (Add n m))
+    
     -- Skip
     Skip   :: CoreLang (TypePack a) n -> CoreLang (TypePack a) (S n)
 
@@ -134,9 +137,17 @@ interpret :: CoreLang t m -> (t, Integer)
 -- Basic operations
 interpret (Lit l)  = (l, 0)
 interpret (Skip a) = let
-                        a'@(a'', t) = interpret a
+                        (a', t) = interpret a
                      in
-                        (a'', t+1)
+                        (a', t+1)
+                        
+                        
+interpret (Let a f) = let
+                        (a', t1) = interpret a
+                        (b', t2) = interpret (f (Lit a'))
+                     in
+                        (b', t2+t2+1)
+                       
                         
 interpret (Or a b) = let
                         a'@(B a'', t1) = interpret a
