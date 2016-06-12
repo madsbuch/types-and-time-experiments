@@ -49,11 +49,16 @@ data TypePack a where
 
 data BoolT = FalseT | TrueT
 
+type ThirtyTwo = (S ( S ( S ( S ( S ( S ( S ( S ( S ( S ( S ( S ( S ( S ( S ( S ( S ( S ( S ( S ( S ( S ( S ( S ( S ( S ( S ( S ( S ( S ( S ( S ( Z)))))))))))))))))))))))))))))))))
+
 -- Define the lagnuage
 data CoreLang t (s :: Nat) where
     -- Literals
     Lit   :: TypePack a -> CoreLang (TypePack a) Z
 
+    -- Let
+    Let   :: CoreLang (TypePack a) n -> (CoreLang (TypePack a) Z -> CoreLang (TypePack b) m) -> CoreLang (TypePack b) (S (Add n m))
+    
     -- Skip
     Skip   :: CoreLang (TypePack a) n -> CoreLang (TypePack a) (S n)
 
@@ -83,6 +88,8 @@ data CoreLang t (s :: Nat) where
     ILt   :: CoreLang (TypePack Int) m -> CoreLang (TypePack Int) n -> CoreLang (TypePack Bool) (S (Add m n))
     IGt   :: CoreLang (TypePack Int) m -> CoreLang (TypePack Int) n -> CoreLang (TypePack Bool) (S (Add m n))
 
+    Explode :: CoreLang (TypePack Int) m -> CoreLang (TypePack (List (TypePack Bool) ThirtyTwo)) (S m)
+    
     -- List operations
     
     Cons :: CoreLang (TypePack (List (TypePack a) s)) n ->
@@ -130,15 +137,30 @@ instance Show t => Show (CoreLang t s) where
 --    show (Fold f i l) = "(Fold f " ++ show i ++ " " ++ show l ++ ")"
 
 
+getBit a n = if (not $ 0 == ((.&.) (2^n) a)) then (B True) else (B False) 
+explodeInt a = L $ (getBit a 0) ::: (getBit a 1) ::: (getBit a 2) ::: (getBit a 3) ::: (getBit a 4) ::: (getBit a 5) ::: (getBit a 6) ::: (getBit a 7) ::: (getBit a 8) ::: (getBit a 9) ::: (getBit a 10) ::: (getBit a 11) ::: (getBit a 12) ::: (getBit a 13) ::: (getBit a 14) ::: (getBit a 15) ::: (getBit a 16) ::: (getBit a 17) ::: (getBit a 18) ::: (getBit a 19) ::: (getBit a 20) ::: (getBit a 21) ::: (getBit a 22) ::: (getBit a 23) ::: (getBit a 24) ::: (getBit a 25) ::: (getBit a 26) ::: (getBit a 27) ::: (getBit a 28) ::: (getBit a 29) ::: (getBit a 30) ::: (getBit a 31) ::: Nill
+
 --An interpreter
 interpret :: CoreLang t m -> (t, Integer)
 
 -- Basic operations
 interpret (Lit l)  = (l, 0)
 interpret (Skip a) = let
-                        a'@(a'', t) = interpret a
+                        (a', t) = interpret a
                      in
-                        (a'', t+1)
+                        (a', t+1)
+                        
+interpret (Explode a) = let 
+                          (I a', t) = interpret a
+                        in 
+                          (explodeInt a', t+1)
+                        
+interpret (Let a f) = let
+                        (a', t1) = interpret a
+                        (b', t2) = interpret (f (Lit a'))
+                     in
+                        (b', t1+t2+1)
+                       
                         
 interpret (Or a b) = let
                         a'@(B a'', t1) = interpret a
@@ -333,13 +355,8 @@ equalIntList xs ys = Fold (Map (Zip xs ys) (\p -> IEq (Fst p) (Scn p))) (Lit (B 
 
 list = Lit $ L (I 119 ::: I 101 ::: I 98 ::: Nill)
 
-foo e acc = If (And (IEq (Plus e acc) (Lit (I 10)))  (equalIntList list list))
-                (Lit (I 0)) 
-                (Lit (I 1))
 
-bar = foo (Lit $ I 0) (Lit $ I 2)
 
-test = Fold list (Lit (I 0)) (\e acc -> foo e acc)
 
 -- Statically limit execution time
 {-
@@ -359,6 +376,7 @@ satisfies_limit :: SNat limit -> CoreLang a time -> Leq time limit
 satisfies_limit l e = Leq l l
 
 -}
+
 {-
 data SNat a where
   SZero :: SNat Z
@@ -375,3 +393,12 @@ constructList (SSucc r)     = case (constructList r) of
 
 theList a = foldr (:::) Nill [if (not $ 0 == ((.&.) (2^n) a)) then 1 else 0 | n<-[0..31]]
 -}
+
+-- Constant time multiplication
+buildList a1 = Let (Plus a1 a1) (\a2 -> Let (Plus a2 a2) (\a3 -> Let (Plus a3 a3) (\a4 -> Let (Plus a4 a4) (\a5 -> Let (Plus a5 a5) (\a6 -> Let (Plus a6 a6) (\a7 -> Let (Plus a7 a7) (\a8 -> Let (Plus a8 a8) (\a9 -> Let (Plus a9 a9) (\a10 -> Let (Plus a10 a10) (\a11 -> Let (Plus a11 a11) (\a12 -> Let (Plus a12 a12) (\a13 -> Let (Plus a13 a13) (\a14 -> Let (Plus a14 a14) (\a15 -> Let (Plus a15 a15) (\a16 -> Let (Plus a16 a16) (\a17 -> Let (Plus a17 a17) (\a18 -> Let (Plus a18 a18) (\a19 -> Let (Plus a19 a19) (\a20 -> Let (Plus a20 a20) (\a21 -> Let (Plus a21 a21) (\a22 -> Let (Plus a22 a22) (\a23 -> Let (Plus a23 a23) (\a24 -> Let (Plus a24 a24) (\a25 -> Let (Plus a25 a25) (\a26 -> Let (Plus a26 a26) (\a27 -> Let (Plus a27 a27) (\a28 -> Let (Plus a28 a28) (\a29 -> Let (Plus a29 a29) (\a30 -> Let (Plus a30 a30) (\a31 -> Let (Plus a31 a31) (\a32 -> 
+                    (Cons (Cons (Cons (Cons (Cons (Cons (Cons (Cons (Cons (Cons (Cons (Cons (Cons (Cons (Cons (Cons (Cons (Cons (Cons (Cons (Cons (Cons (Cons (Cons (Cons (Cons (Cons (Cons (Cons (Cons (Cons (Cons (Lit (L Nill)) a32) a31) a30) a29) a28) a27) a26) a25) a24) a23) a22) a21) a20) a19) a18) a17) a16) a15) a14) a13) a12) a11) a10) a9) a8) a7) a6) a5) a4) a3) a2) a1)
+               )))))))))))))))))))))))))))))))
+
+mult a b = Fold (Map (Zip (buildList a) (Explode b)) (\p -> If (Scn p) (Fst p) (Skip (Lit (I 0))))) (Lit (I 0)) (\a b -> Plus a b)
+        
+test a b = timedInterpret (mult (Lit (I a)) (Lit (I b)))         
