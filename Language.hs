@@ -359,7 +359,7 @@ satisfies_limit :: SNat limit -> CoreLang a time -> Leq time limit
 satisfies_limit l e = Leq l l
 
 -}
-
+{-
 data SNat a where
   SZero :: SNat Z
   SSucc :: SNat a -> SNat (S a)
@@ -374,3 +374,4 @@ constructList (SSucc r)     = case (constructList r) of
                                 (L list) -> (L ((I (sNatToInt r) ) ::: list))
 
 theList a = foldr (:::) Nill [if (not $ 0 == ((.&.) (2^n) a)) then 1 else 0 | n<-[0..31]]
+-}
