@@ -75,33 +75,22 @@ hashedUsers = Map (Lit $ L (user1 ::: user2 ::: user3 ::: Nill)) (\user -> hashU
 testUser user name password = And (equalIntList (Fst (Fst user)) name) (IEq (Scn user) password)
 
 --getUserId :: UserList s -> Username -> Password -> TypePack Int
-getUserId users uName pWord = let
-                                        username = uName
-                                        password = pWord
-                                    in
-                                        Fold users (SumL (Lit U)) (\candidate acc ->
-                                            (Case acc 
-                                                (\_ -> (If (testUser candidate username password) -- InL case
-                                                    (SumR (Scn (Fst candidate))) -- Candidate Match
-                                                    (Skip (Skip (SumL (Lit U)))) -- No Match
-                                                     ))
-                                                (\_ -> (If (testUser candidate username password) -- InR case, c/p for convenience
-                                                    (Skip (Skip (Skip (acc)))) -- Candidate Match
-                                                    (Skip (Skip (Skip (acc)))) -- No Match
-                                                     )))
-                                        )
+getUserId users username password = Fold users (SumL (Lit U)) (\candidate acc ->
+        (Case acc 
+            (\_ -> (If (testUser candidate username password) -- InL case
+                (SumR (Scn (Fst candidate))) -- Candidate Match
+                (Skip (Skip (SumL (Lit U)))) -- No Match
+                 ))
+            (\_ ->  SkipSeq (testUser candidate username password) (Skip (Skip (Skip (acc)))) )
+        )
+    )
 
 -- Tests
 
 -- Should return (B True)
 testTestUser = testUser (hashUser (Lit user1)) (Lit user1Name) (hash (Lit user1Pass)) 
 
-test = getUserId hashedUsers (Lit user1Name) (hash (Lit user1Pass))
-
-
-
+testUserAuth = getUserId hashedUsers (Lit user1Name) (hash (Lit user1Pass))
 
 
 testHashUser = hashUser (Lit user1)
-
---test1 = interpret (getUserId userList user1 user1Pass)
