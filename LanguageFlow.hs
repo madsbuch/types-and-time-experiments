@@ -62,19 +62,13 @@ data List a (size :: Nat) where
 
 data SumType a b = InL a | InR b
 
-data SecLevel (l :: Label) where
-    Pub :: SecLevel Public
-    Sec :: SecLevel Secret
-
-data TypePack a (l :: Label) where
-    B :: SecLevel l -> Bool       -> TypePack Bool l
-    L :: SecLevel l -> List a s   -> TypePack (List a s) l
-    I :: SecLevel l -> Int        -> TypePack Int l
-    U :: SecLevel l ->               TypePack () l
-    P :: SecLevel l -> a -> b     -> TypePack (a, b) l
-    E :: SecLevel l -> SumType a b-> TypePack (SumType a b) l
-
-foo = (B Sec True)
+data TypePack a where
+    B :: Bool       -> TypePack Bool
+    L :: List a s   -> TypePack (List a s)
+    I :: Int        -> TypePack Int
+    U ::               TypePack ()
+    P :: a -> b     -> TypePack (a, b)
+    E :: SumType a b-> TypePack (SumType a b)
 
 type ThirtyTwo = (S ( S ( S ( S ( S ( S ( S ( S ( S ( S ( S ( S ( S ( S ( S ( S ( S ( S ( S ( S ( S ( S ( S ( S ( S ( S ( S ( S ( S ( S ( S ( S ( Z)))))))))))))))))))))))))))))))))
 
@@ -82,21 +76,22 @@ type ThirtyTwo = (S ( S ( S ( S ( S ( S ( S ( S ( S ( S ( S ( S ( S ( S ( S ( S 
 -- Define the lagnuage
 data CoreLang t (l :: Label) (s :: Time) where
     -- Literals
-    Lit   :: TypePack a l -> CoreLang (TypePack a l) l (Constant Z) -- Doesn't really make sense to program with, but needed for the interpreter. 
-
+    Lit   :: TypePack a -> CoreLang (TypePack a) l (Constant Z) -- Doesn't really make sense to program with, but needed for the interpreter. 
+    PLit   :: TypePack a -> CoreLang (TypePack a) Public (Constant Z)
+    SLit   :: TypePack a -> CoreLang (TypePack a) Secret (Constant Z)
 
     
     -- Let 
-    Let   :: CoreLang (TypePack a l1) l1 t1 -> (CoreLang (TypePack a l1) l1 (Constant Z) -> CoreLang (TypePack b l2) l2 t2) -> CoreLang (TypePack b l2) l2 (TimeLub3 t1 t2 (Constant (S Z)))
+    Let   :: CoreLang (TypePack a) l1 t1 -> (CoreLang (TypePack a) l1 (Constant Z) -> CoreLang (TypePack b) l2 t2) -> CoreLang (TypePack b) l2 (TimeLub3 t1 t2 (Constant (S Z)))
     
     -- Skip
-    Skip    :: CoreLang (TypePack a l) l t -> CoreLang (TypePack a l) l (TimeLub t (Constant (S Z)))
-    SkipSeq :: CoreLang (TypePack a l1) l1 t1 -> CoreLang (TypePack b l2) l2 t2 -> CoreLang (TypePack b l2) l2 (TimeLub3 t1 t2 (Constant (S Z)))
+    Skip    :: CoreLang (TypePack a) l t -> CoreLang (TypePack a) l (TimeLub t (Constant (S Z)))
+    SkipSeq :: CoreLang (TypePack a) l1 t1 -> CoreLang (TypePack b) l2 t2 -> CoreLang (TypePack b) l2 (TimeLub3 t1 t2 (Constant (S Z)))
 
     -- Booleans
-    And  :: CoreLang (TypePack Bool l1) l1 t1 -> CoreLang (TypePack Bool l2) l2 t2 -> CoreLang (TypePack Bool (LabelLub l1 l2)) (LabelLub l1 l2) (TimeLub3 (Constant (S Z)) t1 t2)
-    Or   :: CoreLang (TypePack Bool l1) l1 t1 -> CoreLang (TypePack Bool l2) l2 t2 -> CoreLang (TypePack Bool (LabelLub l1 l2)) (LabelLub l1 l2) (TimeLub3 (Constant (S Z)) t1 t2)
-    Not  :: CoreLang (TypePack Bool l1) l1 t1 -> CoreLang (TypePack Bool l1) l1 (TimeLub t1 (Constant (S Z)))
+    And  :: CoreLang (TypePack Bool) l1 t1 -> CoreLang (TypePack Bool) l2 t2 -> CoreLang (TypePack Bool) (LabelLub l1 l2) (TimeLub3 (Constant (S Z)) t1 t2)
+    Or   :: CoreLang (TypePack Bool) l1 t1 -> CoreLang (TypePack Bool) l2 t2 -> CoreLang (TypePack Bool) (LabelLub l1 l2) (TimeLub3 (Constant (S Z)) t1 t2)
+    Not  :: CoreLang (TypePack Bool) l1 t1 -> CoreLang (TypePack Bool) l1 (TimeLub t1 (Constant (S Z)))
     
     -- If
     If      :: CoreLang (TypePack Bool) l1 t1 -> 
@@ -144,7 +139,7 @@ data CoreLang t (l :: Label) (s :: Time) where
             CoreLang (TypePack (List (TypePack a) (S s))) (LabelLub l1 l2) (TimeLub3 t1 t2 (Constant (S Z)))
             
     -- Security downgrade operations
-    TimeToPublic :: CoreLang (TypePack a) l1 (Constant t1) -> CoreLang (TypePack a) l1 (TimeLub t1 (Dependent Public))
+    TimeToPublic :: CoreLang (TypePack a) l1 t1 -> CoreLang (TypePack a) l1 (TimeLub t1 (Dependent Public))
     TimeToSecret :: CoreLang (TypePack a) l1 t1 -> CoreLang (TypePack a) l1 (TimeLub t1 (Dependent Secret))
     
     LabelToSecret :: CoreLang (TypePack a) l1 t1 -> CoreLang (TypePack a) Secret t1
@@ -189,20 +184,15 @@ instance Show t => Show (CoreLang t l s) where
 
 getBit a n = if (not $ 0 == ((.&.) (2^n) a)) then (B True) else (B False) 
 explodeInt a = L $ (getBit a 0) ::: (getBit a 1) ::: (getBit a 2) ::: (getBit a 3) ::: (getBit a 4) ::: (getBit a 5) ::: (getBit a 6) ::: (getBit a 7) ::: (getBit a 8) ::: (getBit a 9) ::: (getBit a 10) ::: (getBit a 11) ::: (getBit a 12) ::: (getBit a 13) ::: (getBit a 14) ::: (getBit a 15) ::: (getBit a 16) ::: (getBit a 17) ::: (getBit a 18) ::: (getBit a 19) ::: (getBit a 20) ::: (getBit a 21) ::: (getBit a 22) ::: (getBit a 23) ::: (getBit a 24) ::: (getBit a 25) ::: (getBit a 26) ::: (getBit a 27) ::: (getBit a 28) ::: (getBit a 29) ::: (getBit a 30) ::: (getBit a 31) ::: Nill
--}
+
 --An interpreter
 interpret :: CoreLang t l m -> t
 
 -- Basic operations
+interpret (PLit l)  = l
+interpret (SLit l)  = l
 interpret (Lit l)  = l
-
-interpret (Let a f) = let
-                        a' = interpret a
-                        b' = interpret (f (Lit a'))
-                     in
-                        b'
-
-{-interpret (Skip a) = interpret a
+interpret (Skip a) = interpret a
 
 interpret (SkipSeq a b) = let
                              a' = interpret a
@@ -214,7 +204,12 @@ interpret (Explode a) = let
                           (I a') = interpret a
                         in 
                           explodeInt a'
-                                                
+                                                 
+interpret (Let a f) = let
+                        a' = interpret a
+                        b' = interpret (f (Lit a'))
+                     in
+                        b'
                        
 
 interpret (Or a b) = let
@@ -385,88 +380,3 @@ bar = IfConst (IEq pInt sInt) pInt pInt
 equalIntList xs ys = Fold (Map (Zip xs ys) (\p -> IEq (Fst p) (Scn p))) (Lit (B True)) (\a b -> And a b)
 
 
-{-
-User authentication example.
-
-First we deine a list of users, then we generate a function for
-testing if a user is in that list
--}
-
--- First, letS make some type aliases so we can type annotate everything, this makes
--- it easier for us to see what goes on
-
--- We use the fixed-length integer string a whole let. There fore we make a type for it
-type Thirty = (S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(S(S Z))))))))))))))))))))))))))))))
-type String30 = TypePack (List (TypePack Int) Thirty)
-
--- UserName Is a fixed-length list of integers
-type Username = String30
-type Password = String30
-
-type User = TypePack ((TypePack (Username, (TypePack Int))), Password)
-type HashedUser = TypePack ((TypePack (Username, (TypePack Int))), (TypePack Int))
-
-type UserList s = TypePack (List User s)
-
--- An example of a password hashing mechanism
-hash pass = let
-              multList = (Map pass (\char -> Time char (Time char char)))
-              folded = Fold multList (PLit (I 0)) (\a b -> Plus a b)
-            in
-              folded
-
--- Then we make some users
-
--- First we completely annotate the variables.
-user1Name :: Username -- "webbies"
-user1Name = L (I 119 ::: I 101 ::: I 98 ::: I 98 ::: I 105 ::: I 101 ::: I 115 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: Nill)
-user1Pass :: Password-- "hunter2"
-user1Pass = L (I 104 ::: I 117 ::: I 110 ::: I 116 ::: I 101 ::: I 114 ::: I 50 ::: I 0  ::: I 0  ::: I 0  ::: I 0  ::: I 0  ::: I 0  ::: I 0  ::: I 0  ::: I 0  ::: I 0  ::: I 0  ::: I 0  ::: I 0  ::: I 0  ::: I 0  ::: I 0  ::: I 0  ::: I 0  ::: I 0  ::: I 0  ::: I 0  ::: I 0  ::: I 0  ::: Nill)
-user1 :: User
-user1 = (P (P user1Name (I 0)) user1Pass)
-
--- Secondly we show, that our types actually can be inferred by Haskell. Two other users are defined here:
- -- "warlizard"
-user2Name = L (I 119 ::: I 97 ::: I 114 ::: I 108 ::: I 105 ::: I 122 ::: I 122 ::: I 97 ::: I 114 ::: I 100 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: Nill)
- -- "password"
-user2Pass = L (I 112 ::: I 97 ::: I 115 ::: I 115 ::: I 119 ::: I 111 ::: I 114 ::: I 100 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: Nill )
-user2 = (P (P user2Name (I 1)) user2Pass)
-
- -- "Randall"
-user3Name = L (I 82 ::: I 97 ::: I 110 ::: I 100 ::: I 97 ::: I 108 ::: I 108 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: I 0 ::: Nill)
- -- "common horse battery staple"
-user3Pass = L (I 99 ::: I 111 ::: I 109 ::: I 109 ::: I 111 ::: I 110 ::: I 32 ::: I 104 ::: I 111 ::: I 114 ::: I 115 ::: I 101 ::: I 32 ::: I 98 ::: I 97 ::: I 116 ::: I 116 ::: I 101 ::: I 114 ::: I 121 ::: I 32 ::: I 115 ::: I 116 ::: I 97 ::: I 112 ::: I 108 ::: I 101 ::: I 0 ::: I 0 ::: I 0 ::: Nill)
-user3 = (P (P user3Name (I 2)) user3Pass)
-
-
--- List of users (3 users)
-userList :: UserList (S (S (S Z)))
-userList = L (user1 ::: user2 ::: user3 ::: Nill)
-
---hashUser :: User -> CoreLang HashedUser ('S ('S (Add Z ('S (Add (Add Z (Add Thirty (Add Thirty 'Z))) (Add Thirty 'Z))))))
-hashUser user = Pair (Fst user) (hash (Scn user))
-
-hashedUsers = Map (PLit $ L (user1 ::: user2 ::: user3 ::: Nill)) (\user -> hashUser user)
-
-testUser user name password = And (equalIntList (Fst (Fst user)) name) (IEq (Scn user) password)
-
---getUserId :: UserList s -> Username -> Password -> TypePack Int
-getUserId users username password = Fold users (SumL (PLit U)) (\candidate acc ->
-        (Case acc 
-            (\_ -> (If (testUser candidate username password) -- InL case
-                (SumR (Scn (Fst candidate))) -- Candidate Match
-                (Skip (Skip (SumL (PLit U)))) -- No Match
-                 ))
-            (\_ ->  SkipSeq (testUser candidate username password) (Skip (Skip (Skip (acc)))) )
-        )
-    )
-
--- Tests
-
--- Should return (B True)
-testTestUser = testUser (hashUser (PLit user1)) (PLit user1Name) (hash (PLit user1Pass)) 
-
-testUserAuth = getUserId hashedUsers (PLit user1Name) (hash (PLit user1Pass))
-
-
-testHashUser = hashUser (PLit user1) -}
