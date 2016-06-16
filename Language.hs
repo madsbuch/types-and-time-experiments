@@ -1,8 +1,10 @@
+{-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE FlexibleContexts #-}
 
 
 module Language where
@@ -11,9 +13,18 @@ import Data.Bits
 import Control.Concurrent (threadDelay)
 import System.CPUTime
 import Control.DeepSeq
+import GHC.Exts (Constraint)
 
 -- Type level natural
 data Nat = Z | S Nat
+
+-- Value level naturals
+data SNat (a :: Nat) where
+  SZ :: SNat Z
+  SS :: SNat a -> SNat (S a)
+
+-- Type level Booleans
+data TBool = TTrue | TFalse
 
 -- Type level addition
 type family Add (n :: Nat) (m :: Nat) :: Nat
@@ -30,6 +41,37 @@ type instance Max Z Z     = Z
 type instance Max Z (S n) = S n
 type instance Max (S n) Z = S n
 type instance Max (S n) (S m) = S (Max n m)
+
+type family Min (n :: Nat) (m :: Nat) :: Nat
+type instance Min Z Z     = Z
+type instance Min Z (S n) = Z
+type instance Min (S n) Z = Z
+type instance Min (S n) (S m) = S (Min n m)
+
+-- A class with instances
+class ConstraintSatisfied (m :: Nat) where
+instance ConstraintSatisfied Z where
+instance ConstraintSatisfied (S m) where
+
+
+-- Alright, this is tricky. We _only_ create a constraint iff n <= m. This results
+-- in an ugly compile time error if it is not the case. 
+type family Leq (n :: Nat) (m :: Nat) :: TBool
+type instance Leq Z     m       = TTrue
+type instance Leq (S m) (S n)   = (Leq m n)
+type instance Leq (S m) Z       = TFalse
+
+type family Or (a :: TBool) (b :: TBool) :: Constraint
+type instance Or TTrue TTrue = ConstraintSatisfied Z
+type instance Or TFalse TTrue = ConstraintSatisfied Z
+type instance Or TTrue TFalse = ConstraintSatisfied Z
+
+type family Constraintify (a :: TBool) :: Constraint
+type instance Constraintify TTrue = ConstraintSatisfied Z
+
+-- A bound that ensures that they are within 50% of each others.
+type family Bound (a :: Nat) (m :: Nat) :: Constraint
+type instance Bound a b  = Constraintify (Leq (Max a b) (Mult (Min a b) (S(S(Z)))))
 
 -- List type, Size is the only thing we leak
 infixr 4 :::
@@ -115,6 +157,10 @@ data CoreLang t (s :: Nat) where
     -- Conditional
     If   :: CoreLang (TypePack Bool) m1 -> CoreLang (TypePack a) m2 -> CoreLang (TypePack a) m2 -> CoreLang (TypePack a) (S (Add m1 m2))
 
+    -- Bound If, ensures that branchesare within 50% of each others and evaluates completely
+    BIf  :: Bound t1 t2 => CoreLang (TypePack Bool) t -> CoreLang (TypePack a) t1 -> CoreLang (TypePack a) t2 -> CoreLang (TypePack a) Z
+
+
 instance Show a => Show (List a s) where
     show (x ::: xs) = (show x) ++ " ::: " ++ (show xs)
     show (Nill)     = "Nill" 
@@ -134,7 +180,8 @@ instance Show a => Show (TypePack a) where
 --    show (P a b)    = "(" ++ show a ++ ", " ++ show b ++ ")"
 
 instance Show t => Show (CoreLang t s) where
-    show (Lit l) = (show l)
+    show (Lit l) = "(Lit " ++ (show l) ++ " )"
+    
 --    show (Fold f i l) = "(Fold f " ++ show i ++ " " ++ show l ++ ")"
 
 
@@ -316,6 +363,13 @@ interpret (If cond tBranch fBranch) = let
                                     in
                                         if cond'' then (tBranch', t1+tt+1) else (fBranch', t1+tf+1)
 
+-- BiF
+interpret (BIf cond tBranch fBranch) = let 
+                                        cond'@(B cond'', t1) = interpret cond
+                                        tb@(tBranch', tt) = interpret tBranch
+                                        fb@(fBranch', tf) = interpret fBranch
+                                    in
+                                        if cond'' then (tBranch', t1+tt+1) else (fBranch', t1+tf+1)
 
 ------------- END INTERPRETER -------------
 
@@ -409,3 +463,14 @@ buildList a1 = Let (Plus a1 a1) (\a2 -> Let (Plus a2 a2) (\a3 -> Let (Plus a3 a3
 mult a b = Fold (Map (Zip (buildList a) (Explode b)) (\p -> If (Scn p) (Fst p) (Skip (Lit (I 0))))) (Lit (I 0)) (\a b -> Plus a b)
         
 test a b = timedInterpret (mult (Lit (I a)) (Lit (I b)))         
+
+
+testTar5 l = Skip $ Skip $ Skip $ Skip $ Skip $ l
+testTar20 = testTar5 $ testTar5 $ testTar5 $ testTar5 $ (Lit (I 20))
+testTar10 = testTar5 $ testTar5 $ (Lit (I 10))
+testTar21 = testTar5 $ testTar5 $ testTar5 $ testTar5 $ Skip $ (Lit (I 20))
+
+-- Bound If Test
+bifTestFalse = (BIf (Lit $ B True)
+  testTar21
+  testTar10)
