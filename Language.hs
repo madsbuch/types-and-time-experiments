@@ -4,7 +4,7 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
-{-# LANGUAGE FlexibleContexts #-}
+
 
 
 module Language where
@@ -373,6 +373,7 @@ interpret (BIf cond tBranch fBranch) = let
 
 ------------- END INTERPRETER -------------
 
+-- Interpreter forcing times
 timedInterpret :: CoreLang (TypePack a) t -> IO (TypePack a)
 timedInterpret exp = do
     start <- getCPUTime
@@ -390,8 +391,7 @@ instance NFData (TypePack a) where
     rnf (U)   = rnf ()
 
 
--- A couple of basic tests
-
+-- ### A couple of basic tests
 testList = Lit $ L (B True ::: B True ::: B False ::: B False ::: Nill )
 
 mapTest list = (Map list (\b -> (And
@@ -410,50 +410,13 @@ doesTypeCheckTest = If
                 (Or (Lit (B True)) (Lit (B False)))
 
 -- Standard operations
-         
 equalIntList xs ys = Fold (Map (Zip xs ys) (\p -> IEq (Fst p) (Scn p))) (Lit (B True)) (\a b -> And a b)
 
 
-list = Lit $ L (I 119 ::: I 101 ::: I 98 ::: Nill)
+intList = L (I 1 ::: I 2 ::: I 3 ::: I 4 ::: Nill )
+plusFold l = Fold (Lit l) (Lit (I 0)) (\a b -> (Plus a b))
 
-
-
-
--- Statically limit execution time
-{-
-type family Sub (n :: Nat) (m :: Nat) :: Nat
-type instance Sub Z     m      = m
-type instance Sub (S m) (S n)  = (Sub m n)
-
-class Sub a b => Leq a b where
--}
-{-
-
-data Refl a b = Refl a a
-data Leq  (x :: Nat) (y :: Nat) where
-  Leq :: SNat x -> SNat y -> Leq (Sub x y) x
-
-satisfies_limit :: SNat limit -> CoreLang a time -> Leq time limit 
-satisfies_limit l e = Leq l l
-
--}
-
-{-
-data SNat a where
-  SZero :: SNat Z
-  SSucc :: SNat a -> SNat (S a)
-
-sNatToInt :: SNat m -> Int
-sNatToInt SZero       = 0
-sNatToInt (SSucc t)   = (sNatToInt t) + 1
-
-constructList ::  SNat s -> TypePack (List (TypePack Int) s)
-constructList SZero         = L Nill
-constructList (SSucc r)     = case (constructList r) of
-                                (L list) -> (L ((I (sNatToInt r) ) ::: list))
-
-theList a = foldr (:::) Nill [if (not $ 0 == ((.&.) (2^n) a)) then 1 else 0 | n<-[0..31]]
--}
+-- ###  Constant time multiplication
 
 -- Constant time multiplication
 buildList a1 = Let (Plus a1 a1) (\a2 -> Let (Plus a2 a2) (\a3 -> Let (Plus a3 a3) (\a4 -> Let (Plus a4 a4) (\a5 -> Let (Plus a5 a5) (\a6 -> Let (Plus a6 a6) (\a7 -> Let (Plus a7 a7) (\a8 -> Let (Plus a8 a8) (\a9 -> Let (Plus a9 a9) (\a10 -> Let (Plus a10 a10) (\a11 -> Let (Plus a11 a11) (\a12 -> Let (Plus a12 a12) (\a13 -> Let (Plus a13 a13) (\a14 -> Let (Plus a14 a14) (\a15 -> Let (Plus a15 a15) (\a16 -> Let (Plus a16 a16) (\a17 -> Let (Plus a17 a17) (\a18 -> Let (Plus a18 a18) (\a19 -> Let (Plus a19 a19) (\a20 -> Let (Plus a20 a20) (\a21 -> Let (Plus a21 a21) (\a22 -> Let (Plus a22 a22) (\a23 -> Let (Plus a23 a23) (\a24 -> Let (Plus a24 a24) (\a25 -> Let (Plus a25 a25) (\a26 -> Let (Plus a26 a26) (\a27 -> Let (Plus a27 a27) (\a28 -> Let (Plus a28 a28) (\a29 -> Let (Plus a29 a29) (\a30 -> Let (Plus a30 a30) (\a31 -> Let (Plus a31 a31) (\a32 -> 
@@ -464,6 +427,16 @@ mult a b = Fold (Map (Zip (buildList a) (Explode b)) (\p -> If (Scn p) (Fst p) (
         
 test a b = timedInterpret (mult (Lit (I a)) (Lit (I b)))         
 
+-- ### Adding limits
+
+-- Play with runtime constraints
+limitRuntimeInterpreter :: Constraintify (Leq t limit) => SNat limit -> CoreLang a t -> (a, Integer)
+limitRuntimeInterpreter _ exp = interpret exp
+
+-- fails = limitRuntimeInterpreter (SS $ SZ) (plusFold intList)
+works = limitRuntimeInterpreter (SS $ SS $ SS $ SS $ SS $ SS $ SS $ SS $ SS $ SS $ SS $ SZ) (plusFold intList)
+
+-- ### Adding bounds
 
 testTar5 l = Skip $ Skip $ Skip $ Skip $ Skip $ l
 testTar20 = testTar5 $ testTar5 $ testTar5 $ testTar5 $ (Lit (I 20))
@@ -472,5 +445,5 @@ testTar21 = testTar5 $ testTar5 $ testTar5 $ testTar5 $ Skip $ (Lit (I 20))
 
 -- Bound If Test
 bifTestFalse = (BIf (Lit $ B True)
-  testTar21
+  testTar20
   testTar10)
