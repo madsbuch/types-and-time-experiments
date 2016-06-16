@@ -38,6 +38,7 @@ type instance LabelLub3 a b c = (LabelLub (LabelLub a b) c)
 
 data Time = Dependent Label | Constant Nat
 
+{- Setting up dependency between time and security level -}
 type family TimeLub (a :: Time) (b :: Time) :: Time
 type instance TimeLub (Dependent l1) (Dependent l2) = Dependent (LabelLub l1 l2)
 type instance TimeLub (Dependent l1) (Constant t1) = Dependent l1
