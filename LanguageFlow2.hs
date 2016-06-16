@@ -80,7 +80,7 @@ type ThirtyTwo = (S ( S ( S ( S ( S ( S ( S ( S ( S ( S ( S ( S ( S ( S ( S ( S 
 -- Define the lagnuage
 data CoreLang t (s :: Time) where
     -- Literals
-    Lit   :: TypePack a l -> CoreLang (TypePack a l) (Constant Z) -- Doesn't really make sense to program with, but needed for the interpreter. 
+    Lit   :: TypePack a l -> CoreLang (TypePack a l) (Constant Z)
     
     -- Let 
     Let   :: CoreLang (TypePack a l1) t1 -> (CoreLang (TypePack a l1) (Constant Z) -> CoreLang (TypePack b l2) t2) -> CoreLang (TypePack b l2) (TimeLub3 t1 t2 (Constant (S Z)))
@@ -160,25 +160,22 @@ data CoreLang t (s :: Time) where
         
 -}
 
-{-
+
 instance Show a => Show (List a s) where
     show (x ::: xs) = (show x) ++ " ::: " ++ (show xs)
     show (Nill)     = "Nill" 
     
-instance Show a => Show (SecLevel l) where
-    show Pub = "Public"
-    show Sec = "Secret" 
 
 instance (Show a, Show b) => Show (SumType a b) where
     show (InL a) = "(InL " ++ show a ++ ")"
     show (InR a) = "(InR " ++ show a ++ ")"
 
 instance Show a => Show (TypePack a l) where
-    show (B b r)      = "(B " ++ show b ++ ")"
-    show (I i r)      = "(I " ++ show i ++ ")"
-    show (L l r)      = "(L " ++ show l ++ ")"
+    show (B r b)      = "(B " ++ show b ++ ")"
+    show (I r i)      = "(I " ++ show i ++ ")"
+    show (L r l)      = "(L " ++ show l ++ ")"
     show (U r)        = "()"
-    show (E a r)      = "(E " ++ show a ++ ")"
+    show (E r a)      = "(E " ++ show a ++ ")"
 
 --instance (Show a, Show b) => Show (TypePack (a, b)) where
 --    show (P a b)    = "(" ++ show a ++ ", " ++ show b ++ ")"
@@ -187,7 +184,7 @@ instance Show t => Show (CoreLang t s) where
     show (Lit l) = (show l)
 --    show (Fold f i l) = "(Fold f " ++ show i ++ " " ++ show l ++ ")"
 
--}
+
 
 
 --getBit a n = if (not $ 0 == ((.&.) (2^n) a)) then (B True) else (B False) 
